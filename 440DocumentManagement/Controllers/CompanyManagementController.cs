@@ -45,13 +45,15 @@ namespace _440DocumentManagement.Controllers
               status = missingParameter + " is required"
             });
           }
-          //check if company_id and company_domain exists
-          if (_IsExists(request.company_id, request.company_domain))
+					//check if company_id and company_domain exists
+					var existedCompanyDomain = _IsExists(request.company_id, request.company_domain);
+					if (!string.IsNullOrEmpty(existedCompanyDomain))
           {
-            return BadRequest(new
-            {
-              status = $"Company already exist with a company_id or company_domain."
-            });
+						return Ok(new
+						{
+							status = "Duplicated",
+							company_id = existedCompanyDomain
+						});
           }
 
           using (var cmd = _dbHelper.SpawnCommand())
@@ -519,38 +521,39 @@ namespace _440DocumentManagement.Controllers
             while (reader.Read())
             {
               result.Add(new Dictionary<string, object>
-                                                        {
-                                                                { "company_email", Convert.ToString(reader["company_email"]) },
-                                                                { "company_id", Convert.ToString(reader["company_id"]) },
-                                                                { "company_domain", Convert.ToString(reader["company_domain"]) },
-                                                                { "create_datetime", Convert.ToString(reader["create_datetime"]) },
-                                                                { "company_address1", Convert.ToString(reader["company_address1"]) },
-                                                                { "company_address2", Convert.ToString(reader["company_address2"]) },
-                                                                { "company_country", Convert.ToString(reader["company_country"]) },
-                                                                { "company_duns_number", Convert.ToString(reader["company_duns_number"]) },
-                                                                { "company_service_area", Convert.ToString(reader["company_service_area"]) },
-                                                                { "company_photo_id", Convert.ToString(reader["company_photo_id"]) },
-                                                                { "company_record_source", Convert.ToString(reader["record_source"]) },
-                                                                { "company_timezone", Convert.ToString(reader["company_timezone"]) },
-                                                                { "company_website", Convert.ToString(reader["company_website"]) },
-                                                                { "edit_datetime", Convert.ToString(reader["edit_datetime"]) },
-                                                                { "company_status", Convert.ToString(reader["status"]) },
-                                                                { "company_crm_id", Convert.ToString(reader["company_crm_id"]) },
-                                                                { "create_user_id", Convert.ToString(reader["create_user_id"]) },
-                                                                { "edit_user_id", Convert.ToString(reader["edit_user_id"]) },
-                                                                { "company_type", Convert.ToString(reader["company_type"]) },
-                                                                { "company_city", Convert.ToString(reader["company_city"]) },
-                                                                { "company_name", Convert.ToString(reader["company_name"]) },
-                                                                { "company_phone", Convert.ToString(reader["company_phone"]) },
-                                                                { "company_state", Convert.ToString(reader["company_state"]) },
-                                                                { "company_zip", Convert.ToString(reader["company_zip"]) },
-                                                                { "status", Convert.ToString(reader["status"]) },
+							{
+								{ "company_admin_user_id", Convert.ToString(reader["company_admin_user_id"]) },
+								{ "company_email", Convert.ToString(reader["company_email"]) },
+								{ "company_id", Convert.ToString(reader["company_id"]) },
+								{ "company_domain", Convert.ToString(reader["company_domain"]) },
+								{ "create_datetime", Convert.ToString(reader["create_datetime"]) },
+								{ "company_address1", Convert.ToString(reader["company_address1"]) },
+								{ "company_address2", Convert.ToString(reader["company_address2"]) },
+								{ "company_country", Convert.ToString(reader["company_country"]) },
+								{ "company_duns_number", Convert.ToString(reader["company_duns_number"]) },
+								{ "company_service_area", Convert.ToString(reader["company_service_area"]) },
+								{ "company_photo_id", Convert.ToString(reader["company_photo_id"]) },
+								{ "company_record_source", Convert.ToString(reader["record_source"]) },
+								{ "company_timezone", Convert.ToString(reader["company_timezone"]) },
+								{ "company_website", Convert.ToString(reader["company_website"]) },
+								{ "edit_datetime", Convert.ToString(reader["edit_datetime"]) },
+								{ "company_status", Convert.ToString(reader["status"]) },
+								{ "company_crm_id", Convert.ToString(reader["company_crm_id"]) },
+								{ "create_user_id", Convert.ToString(reader["create_user_id"]) },
+								{ "edit_user_id", Convert.ToString(reader["edit_user_id"]) },
+								{ "company_type", Convert.ToString(reader["company_type"]) },
+								{ "company_city", Convert.ToString(reader["company_city"]) },
+								{ "company_name", Convert.ToString(reader["company_name"]) },
+								{ "company_phone", Convert.ToString(reader["company_phone"]) },
+								{ "company_state", Convert.ToString(reader["company_state"]) },
+								{ "company_zip", Convert.ToString(reader["company_zip"]) },
+								{ "status", Convert.ToString(reader["status"]) },
 
-                                                                { "customer_id", Convert.ToString(reader["customer_id"]) },
-                                                                { "company_employee_number", Convert.ToString(reader["company_employee_number"]) },
-                                                                { "company_revenue", Convert.ToString(reader["company_revenue"]) },
-                                                                { "company_logo_id", Convert.ToString(reader["company_logo_id"]) },
-                                                        });
+								{ "customer_id", Convert.ToString(reader["customer_id"]) },
+								{ "company_employee_number", Convert.ToString(reader["company_employee_number"]) },
+								{ "company_revenue", Convert.ToString(reader["company_revenue"]) },
+								{ "company_logo_id", Convert.ToString(reader["company_logo_id"]) },
+							});
             }
           }
         }
@@ -573,14 +576,26 @@ namespace _440DocumentManagement.Controllers
       }
     }
 
-    private bool _IsExists(string company_id, string company_domain)
+    private string _IsExists(string company_id, string company_domain)
     {
       using (var cmd = _dbHelper.SpawnCommand())
       {
-        cmd.CommandText = $"SELECT EXISTS (SELECT true FROM public.customer_companies WHERE company_id=@company_id or company_domain= @company_domain)";
+				//cmd.CommandText = $"SELECT EXISTS (SELECT true FROM public.customer_companies WHERE company_id=@company_id or company_domain= @company_domain)";
+				cmd.CommandText = "SELECT company_id FROM public.customer_companies WHERE company_id = @company_id OR company_domain = @company_domain";
         cmd.Parameters.AddWithValue("@company_id", company_id);
         cmd.Parameters.AddWithValue("@company_domain", (object)company_domain ?? DBNull.Value);
-        return (bool)cmd.ExecuteScalar();
+
+				using (var reader = cmd.ExecuteReader())
+				{
+					if (reader.HasRows && reader.Read())
+					{
+						return _dbHelper.SafeGetString(reader, 0);
+					}
+					else
+					{
+						return null;
+					}
+				}
       }
     }
   }

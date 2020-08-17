@@ -7,6 +7,7 @@ namespace _440DocumentManagement.Services.Interface
 	{
 		string CreateRecord(DashboardModel newRecord);
 		List<object> FindRecords(DashboardFindRequestModel request);
+		List<object> GetAnalyticData(GetAnalyticDataRequestModel request);
 		DashboardModel GetRecord(DashboardGetRequestModel request);
 		int UpdateRecords(DashboardUpdateRequestModel request);
 	}

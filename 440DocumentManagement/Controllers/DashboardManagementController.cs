@@ -133,6 +133,63 @@ namespace SDAPI.Controllers
 		}
 
 		[HttpGet]
+		[Route("GetAnalyticData")]
+		[OpenApiOperation("Gets the analytic data", "Gets the analytic data")]
+		[ProducesResponseType(typeof(BaseErrorModel), StatusCodes.Status400BadRequest)]
+		public IActionResult GetAnalyticData(GetAnalyticDataRequestModel request)
+		{
+			try
+			{
+				if (request == null)
+				{
+					return BadRequest(new BaseErrorModel
+					{
+						Status = Constants.ApiStatus.ERROR,
+						Message = "Request can't be null"
+					});
+				}
+
+				// Verify the required fields
+				var missingParameter = request.CheckRequiredParameters(new string[]
+				{
+					"CustomerId", "AnalyticType"
+				});
+				if (missingParameter != null)
+				{
+					return BadRequest(new BaseErrorModel
+					{
+						Status = Constants.ApiStatus.ERROR,
+						Message = $"{missingParameter} is required"
+					});
+				}
+
+				if (request.AnalyticType != "project_stage" && request.AnalyticType != "bid_month")
+				{
+					return BadRequest(new BaseErrorModel
+					{
+						Status = Constants.ApiStatus.ERROR,
+						Message = "Invalid analytic type"
+					});
+				}
+
+				var result = _dashboardManagementService.GetAnalyticData(request);
+				return Ok(result);
+			}
+			catch (ApiException ex)
+			{
+				return BadRequest(new BaseErrorModel
+				{
+					Status = Constants.ApiStatus.ERROR,
+					Message = ex.Message
+				});
+			}
+			finally
+			{
+				_dbHelper.CloseConnection();
+			}
+		}
+
+		[HttpGet]
 		[Route("GetDashboard")]
 		[OpenApiOperation(
 			"Gets the specified dashboard",

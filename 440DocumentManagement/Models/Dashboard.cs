@@ -200,4 +200,37 @@ namespace _440DocumentManagement.Models.Dashboard
 		[Description("")]
 		public string DeviceId { get; set; } = ApiExtension.UNDEFINED_STRING;
 	}
+
+	public class GetAnalyticDataRequestModel : BaseModel
+	{
+		[BindProperty(Name = "customer_id")]
+		[JsonProperty("customer_id")]
+		[Description("")]
+		[BindRequired]
+		public string CustomerId { get; set; }
+		[BindProperty(Name = "company_id")]
+		[JsonProperty("company_id")]
+		[Description("")]
+		public string CompanyId { get; set; }
+		[BindProperty(Name = "datasource_id")]
+		[JsonProperty("datasource_id")]
+		[Description("")]
+		public string DatasourceId { get; set; }
+		[BindProperty(Name = "datasource_startdatetime")]
+		[JsonProperty("datasource_startdatetime")]
+		[Description("")]
+		public string DatasourceStartdatetime { get; set; }
+		[BindProperty(Name = "datasource_enddatetime")]
+		[JsonProperty("datasource_enddatetime")]
+		[Description("")]
+		public string DatasourceEnddatetime { get; set; }
+		[BindProperty(Name = "datasource_interval")]
+		[JsonProperty("datasource_interval")]
+		[Description("")]
+		public string DatasourceInterval { get; set; }
+		[BindProperty(Name = "analytic_type")]
+		[JsonProperty("analytic_type")]
+		[Description("")]
+		public string AnalyticType { get; set; }
+	}
 }

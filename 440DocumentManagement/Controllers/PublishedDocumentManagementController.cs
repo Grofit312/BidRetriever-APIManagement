@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using _440DocumentManagement.Helpers;
 using _440DocumentManagement.Models;
 using Microsoft.AspNetCore.Http;
@@ -443,7 +444,9 @@ namespace _440DocumentManagement.Controllers
 							+ "users.user_email AS project_admin_user_email, "
 							+ "folder_transaction_log.project_id as project_id, "
 							+ "projects.project_name as project_name, "
-							+ "projects.project_assigned_office_name as project_office_name "
+							+ "projects.project_assigned_office_name as project_office_name, "
+							+ "projects.project_admin_user_id as admin_user_id, "
+							+ "projects.project_assigned_office_id as company_office_id "
 						+ "FROM folder_transaction_log "
 						+ "LEFT JOIN projects ON folder_transaction_log.project_id = projects.project_id "
 						+ "LEFT JOIN project_documents ON folder_transaction_log.doc_id = project_documents.doc_id "
@@ -456,7 +459,7 @@ namespace _440DocumentManagement.Controllers
 						+ "GROUP BY "
 							+ "customers.customer_id, customers.customer_name, projects.project_name, folder_transaction_log.project_id, "
 							+ "projects.project_admin_user_id, projects.project_assigned_office_name, projects.project_bid_datetime, "
-							+ "users.user_displayname, users.user_email "
+							+ "users.user_displayname, users.user_email, projects.project_assigned_office_id "
 						+ "ORDER BY "
 							+ "customers.customer_name ASC, projects.project_assigned_office_name ASC, projects.project_name ASC ";
 
@@ -479,8 +482,48 @@ namespace _440DocumentManagement.Controllers
 									{ "project_admin_user_email", _dbHelper.SafeGetString(reader, 5) },
 									{ "project_id", _dbHelper.SafeGetString(reader, 6) },
 									{ "project_name", _dbHelper.SafeGetString(reader, 7) },
-									{ "project_office_name", _dbHelper.SafeGetString(reader, 8) }
+									{ "project_office_name", _dbHelper.SafeGetString(reader, 8) },
+									{ "admin_user_id", _dbHelper.SafeGetString(reader, 9) },
+									{ "company_office_id", _dbHelper.SafeGetString(reader, 10) },
+									{ "view_project_url", "" },
+									{ "view_project_documents_url", "" }
 								});
+							}
+						}
+					}
+
+					cmd.Parameters.Clear();
+					cmd.CommandText = "SELECT setting_value FROM system_settings WHERE system_setting_id = @system_setting_id";
+					cmd.Parameters.AddWithValue("@system_setting_id", "CUSTOMER_PORTAL_URL");
+					using (var reader = cmd.ExecuteReader())
+					{
+						if (reader.HasRows && reader.Read())
+						{
+							var customerPortalUrl = _dbHelper.SafeGetString(reader, 0);
+							if (!string.IsNullOrEmpty(customerPortalUrl))
+							{
+								for (var index = 0; index < resultList.Count; index ++)
+								{
+									resultList[index]["view_project_url"] = $"{customerPortalUrl}/customer-portal/view-project/{resultList[index]["project_id"]}";
+								}
+							}
+						}
+					}
+
+					cmd.Parameters.Clear();
+					cmd.CommandText = "SELECT setting_value FROM system_settings WHERE system_setting_id = @system_setting_id";
+					cmd.Parameters.AddWithValue("@system_setting_id", "BR_VIEWER_URL");
+					using (var reader = cmd.ExecuteReader())
+					{
+						if (reader.HasRows && reader.Read())
+						{
+							var brViewerUrl = _dbHelper.SafeGetString(reader, 0);
+							if (!string.IsNullOrEmpty(brViewerUrl))
+							{
+								for (var index = 0; index < resultList.Count; index++)
+								{
+									resultList[index]["view_project_documents_url"] = $"{brViewerUrl}?project_id={resultList[index]["project_id"]}&user_id={resultList[index]["admin_user_id"]}&doc_type=normal&doc_id=unknown&folder_id=unknown";
+								}
 							}
 						}
 					}
