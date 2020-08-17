@@ -76,7 +76,8 @@ namespace _440DocumentManagement.Controllers
 					cmd.Parameters.AddWithValue("@edit_datetime", DateTime.UtcNow);
 					cmd.Parameters.AddWithValue("@edit_userid", request.user_id);
 					cmd.Parameters.AddWithValue("@project_source_status", request.project_source_status);
-					cmd.ExecuteNonQuery();
+          cmd.Parameters.AddWithValue("@project_source_status", request.project_source_status);
+          cmd.ExecuteNonQuery();
 				}
 
 				return Ok(new
