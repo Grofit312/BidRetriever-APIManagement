@@ -1,0 +1,8 @@
+version: '3.4'
+
+services:
+  440documentmanagement:
+    image: ${DOCKER_REGISTRY}440documentmanagement
+    build:
+      context: .
+      dockerfile: 440DocumentManagement/Dockerfile
