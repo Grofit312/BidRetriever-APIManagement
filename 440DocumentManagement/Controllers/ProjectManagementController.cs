@@ -176,7 +176,7 @@ namespace _440DocumentManagement.Controllers
             + "project_bid_datetime, project_type, project_customer_id, status, create_datetime, edit_datetime, "
             + "auto_update_status, customer_source_sys_id, project_password, project_timezone, source_url, source_username, source_password, source_token, source_sys_type_id, project_notes, project_process_status, project_process_message, project_rating, "
             + "project_award_status, project_building_type, project_contract_type, project_construction_type, project_labor_requirement, "
-            + "project_segment, project_size, project_stage, project_value, source_company_contact_id,source_company_id, source_user_id, "
+            + "project_segment, project_size, project_stage, project_value, source_company_id, source_user_id, "
             + "project_assigned_office_id, project_assigned_office_name, project_displayname, source_project_id)"
             + "VALUES(@project_id, @project_name, @project_number, @project_admin_user_id, @project_address1, @project_address2, "
             + "@project_city, @project_state, @project_zip, @project_country, @project_service_area, "
@@ -184,7 +184,7 @@ namespace _440DocumentManagement.Controllers
             + "@project_customer_id, @status, @create_datetime, @edit_datetime, "
             + "@auto_update_status, @customer_source_sys_id, @project_password, @project_timezone, @source_url, @source_username, @source_password, @source_token, @source_sys_type_id, @project_notes, @project_process_status, @project_process_message, @project_rating, "
             + "@project_award_status, @project_building_type, @project_contract_type, @project_construction_type, @project_labor_requirement, "
-            + "@project_segment, @project_size, @project_stage, @project_value, @source_company_contact_id, @source_company_id, @source_user_id, "
+            + "@project_segment, @project_size, @project_stage, @project_value, @source_company_id, @source_user_id, "
             + "@project_assigned_office_id, @project_assigned_office_name, @project_displayname, @source_project_id)";
 
           cmd.Parameters.AddWithValue("project_id", projectId);
@@ -232,9 +232,7 @@ namespace _440DocumentManagement.Controllers
           cmd.Parameters.AddWithValue("project_size", project.project_size ?? "");
           cmd.Parameters.AddWithValue("project_stage", project.project_stage ?? "");
           cmd.Parameters.AddWithValue("project_value", (object)project.project_value ?? DBNull.Value);
-          //cmd.Parameters.AddWithValue("source_company_id", project.source_company_id ?? project.project_customer_id);
-          cmd.Parameters.AddWithValue("source_company_contact_id", (object)project.source_company_contact_id ?? "");
-          cmd.Parameters.AddWithValue("source_company_id", project.source_company_id ?? "");
+          cmd.Parameters.AddWithValue("source_company_id", project.source_company_id ?? project.project_customer_id);
           cmd.Parameters.AddWithValue("source_user_id", project.source_user_id ?? "");
           cmd.Parameters.AddWithValue("project_assigned_office_id", project.project_assigned_office_id ?? "");
           cmd.Parameters.AddWithValue("project_assigned_office_name", project.project_assigned_office_name ?? "");
@@ -2003,15 +2001,6 @@ namespace _440DocumentManagement.Controllers
           return "disabled";
         }
       }
-    }
-
-     private bool IsEmailExist(string email)
-    {
-      using (var cmd = _dbHelper.SpawnCommand())
-      {
-        cmd.CommandText = $"select * from customer_companies where company_email={email}";
-        return (bool)cmd.ExecuteScalar();
-      } 
     }
   }
 }

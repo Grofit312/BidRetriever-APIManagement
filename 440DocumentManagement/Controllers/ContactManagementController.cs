@@ -1,4 +1,4 @@
-using _440DocumentManagement.Helpers;
+﻿using _440DocumentManagement.Helpers;
 using _440DocumentManagement.Models.ContactManagement;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -96,8 +96,8 @@ namespace _440DocumentManagement.Controllers
 						cmd.Parameters.AddWithValue("@contact_city", (object)request.contact_city ?? DBNull.Value);
 						cmd.Parameters.AddWithValue("@contact_country", (object)request.contact_country ?? DBNull.Value);
 						cmd.Parameters.AddWithValue("@contact_crm_id", (object)request.contact_crm_id ?? DBNull.Value);
-						cmd.Parameters.AddWithValue("@contact_display_name", (object)request.contact_display_name ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@contact_email", request.contact_email);
+						//cmd.Parameters.AddWithValue("@contact_display_name", request.contact_display_name);
+						cmd.Parameters.AddWithValue("@contact_email", request.contact_email);
 						cmd.Parameters.AddWithValue("@contact_id", request.contact_id);
 						cmd.Parameters.AddWithValue("@contact_firstname", (object)request.contact_firstname ?? DBNull.Value);
 						cmd.Parameters.AddWithValue("@contact_lastname", (object)request.contact_lastname ?? DBNull.Value);
@@ -145,19 +145,7 @@ namespace _440DocumentManagement.Controllers
 							cmd.ExecuteNonQuery();
 						}
 					}
-          //using (var reader = cmd.ExecuteReader())
-          //{
-          //  while (reader.Read())
-          //  {
-          //    result.Add(new Dictionary<string, object>
-          //                      {
-          //                          { "contact_id", Convert.ToString(reader["contact_id"]) },
-                                   
-          //                      });
-          //  }
-          //  return Ok(result);
-          //}
-          return Ok(new
+					return Ok(new
 					{
 						status = "Success",
 						request.contact_id

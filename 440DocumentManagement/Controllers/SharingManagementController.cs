@@ -1,4 +1,4 @@
-using _440DocumentManagement.Helpers;
+﻿using _440DocumentManagement.Helpers;
 using _440DocumentManagement.Models;
 using _440DocumentManagement.Services.Interface;
 using Amazon.SimpleEmail;
@@ -686,16 +686,10 @@ namespace _440DocumentManagement.Controllers
 				project_id = project_id,
 			}) as OkObjectResult;
 
-      if (response != null)
-      {
-        var json = JsonConvert.SerializeObject(response.Value);
-        var dict = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
+			var json = JsonConvert.SerializeObject(response.Value);
+			var dict = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
 
-        return dict["url"];
-      }
-
-      return string.Empty;
-			
+			return dict["url"];
 		}
 	}
 }
