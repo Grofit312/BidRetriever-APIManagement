@@ -1,4 +1,4 @@
-﻿namespace _440DocumentManagement.Models
+namespace _440DocumentManagement.Models
 {
 	public class DLProject : BaseModel
 	{
@@ -57,7 +57,8 @@
 		public string project_stage { get; set; }
 		public int project_value { get; set; }
 		public string source_company_id { get; set; }
-		public string source_user_id { get; set; }
+    public string source_company_contact_id { get; set; }
+    public string source_user_id { get; set; }
 
 		public string project_assigned_office_id { get; set; }
 		public string project_assigned_office_name { get; set; }

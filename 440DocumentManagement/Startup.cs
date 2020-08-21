@@ -110,6 +110,7 @@ namespace _440DocumentManagement
 		{
 			services.AddTransient<IBaseService, BaseService>();
 
+			services.AddTransient<IAnalyticDatasourcesManagementService, AnalyticDatasourcesManagementService>();
 			services.AddTransient<ICustomerAttributeManagementService, CustomerAttributeManagementService>();
 			services.AddTransient<IDashboardManagementService, DashboardManagementService>();
 			services.AddTransient<IDashboardPanelManagementService, DashboardPanelManagementService>();

@@ -11,6 +11,7 @@ namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("Dashboard Panel Management")]
 	public class DashboardPanelManagementController : Controller
 	{
 		private readonly IDashboardPanelManagementService _dashboardPanelManagementService;

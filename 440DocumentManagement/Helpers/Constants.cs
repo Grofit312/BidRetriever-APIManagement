@@ -16,6 +16,11 @@ public static class Constants
 
 	public static class ApiTables
 	{
+		public static readonly ApiDatabaseTableDetails ANALYTIC_DATASOURCES = new ApiDatabaseTableDetails
+		{
+			TableName = "analytic_datasources",
+			PrimaryKey = "analytic_datasource_id"
+		};
 		public static readonly ApiDatabaseTableDetails DASHBOARD = new ApiDatabaseTableDetails
 		{
 			TableName = "dashboards",

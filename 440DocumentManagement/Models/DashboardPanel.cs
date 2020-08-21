@@ -81,6 +81,22 @@ namespace _440DocumentManagement.Models.DashboardPanel
 		[Description("The GUID of the dashboard that this panel is assigned.")]
 		[BindRequired]
 		public string DashboardId { get; set; }
+		[BindProperty(Name = "panel_analytic_datasource_interval")]
+		[JsonProperty("panel_analytic_datasource_interval")]
+		[Description("The Interval used when displaying this panel. Values: Day, Week, Month, Quarter, Year.")]
+		public string PanelAnalyticDatasourceInterval { get; set; }
+		[BindProperty(Name = "panel_end_date_offset")]
+		[JsonProperty("panel_end_date_offset")]
+		[Description("The end date time for the panel. This value will be defined in “Intervals” from current date. A value of 30 would return data from 30 “Intervals” after todays date. A value of -5 would return data from five days prior to todays date. A value of 0 would show only historical data, because the end date would be zero intervals from todays date. If this value is not provided, the offset will default to a value of Zero.")]
+		public int? PanelEndDateOffset { get; set; }
+		[BindProperty(Name = "panel_header")]
+		[JsonProperty("panel_header")]
+		[Description("The text header that will be displayed above the graph. This value can contain standard attributes separated by <>. Example: <company_name>")]
+		public string PanelHeader { get; set; }
+		[BindProperty(Name = "panel_start_date_offset")]
+		[JsonProperty("panel_start_date_offset")]
+		[Description("The start date time for the panel as an offset from today. This value will be defined in intervals from the current date. A value of -30 would start the data 30 intervals prior to todays date. A value of zero would only return future data since the start date would be zero days from todays date. A value of 7 would return data starting seven intervals in the future. If a value is not provided, the system will default to a value of zero.")]
+		public int? PanelStartDateOffset { get; set; }
 	}
 
 	public class DashboardPanelCreateResponseModel : BaseModel
@@ -199,5 +215,21 @@ namespace _440DocumentManagement.Models.DashboardPanel
 		[JsonProperty("dashboard_id")]
 		[Description("The GUID of the dashboard that this panel is assigned.")]
 		public string DashboardId { get; set; } = ApiExtension.UNDEFINED_STRING;
+		[BindProperty(Name = "panel_analytic_datasource_interval")]
+		[JsonProperty("panel_analytic_datasource_interval")]
+		[Description("The Interval used when displaying this panel. Values: Day, Week, Month, Quarter, Year.")]
+		public string PanelAnalyticDatasourceInterval { get; set; } = ApiExtension.UNDEFINED_STRING;
+		[BindProperty(Name = "panel_end_date_offset")]
+		[JsonProperty("panel_end_date_offset")]
+		[Description("The end date time for the panel. This value will be defined in “Intervals” from current date. A value of 30 would return data from 30 “Intervals” after todays date. A value of -5 would return data from five days prior to todays date. A value of 0 would show only historical data, because the end date would be zero intervals from todays date. If this value is not provided, the offset will default to a value of Zero.")]
+		public int? PanelEndDateOffset { get; set; } = ApiExtension.UNDEFINED_INT;
+		[BindProperty(Name = "panel_header")]
+		[JsonProperty("panel_header")]
+		[Description("The text header that will be displayed above the graph. This value can contain standard attributes separated by <>. Example: <company_name>")]
+		public string PanelHeader { get; set; } = ApiExtension.UNDEFINED_STRING;
+		[BindProperty(Name = "panel_start_date_offset")]
+		[JsonProperty("panel_start_date_offset")]
+		[Description("The start date time for the panel as an offset from today. This value will be defined in intervals from the current date. A value of -30 would start the data 30 intervals prior to todays date. A value of zero would only return future data since the start date would be zero days from todays date. A value of 7 would return data starting seven intervals in the future. If a value is not provided, the system will default to a value of zero.")]
+		public int? PanelStartDateOffset { get; set; } = ApiExtension.UNDEFINED_INT;
 	}
 }
