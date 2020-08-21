@@ -292,6 +292,7 @@ namespace _440DocumentManagement.Controllers
           var destinationTypeId = "";
           var destinationUsername = "";
           var destinationPassword = "";
+					var destinationId = "";
           var userEmail = "";
           var userLastName = "";
           var customerName = "";
@@ -301,8 +302,9 @@ namespace _440DocumentManagement.Controllers
           cmd.CommandText = "SELECT customer_destinations.destination_access_token, customer_destinations.destination_url, "
             + "customer_destinations.destination_root_path, customer_destinations.destination_type_id, "
             + "customer_destinations.destination_username, customer_destinations.destination_password, "
-            + "users.user_email, users.user_lastname, customers.customer_name, customer_settings.setting_value, customer_settings.setting_id "
-            + "FROM users LEFT JOIN customers ON users.customer_id=customers.customer_id "
+            + "users.user_email, users.user_lastname, customers.customer_name, customer_settings.setting_value, customer_settings.setting_id, "
+						+ "customer_destinations.destination_id "
+						+ "FROM users LEFT JOIN customers ON users.customer_id=customers.customer_id "
             + "LEFT JOIN customer_destinations on customer_destinations.customer_id=COALESCE(customers.customer_id, 'TrialUser') "
             + "LEFT JOIN customer_settings ON customer_settings.customer_id=customers.customer_id "
             + "WHERE users.user_id='" + project.project_admin_user_id + "'";
@@ -326,6 +328,7 @@ namespace _440DocumentManagement.Controllers
                 { "customer_name", _dbHelper.SafeGetString(reader, 8) },
                 { "setting_value", _dbHelper.SafeGetString(reader, 9) },
                 { "setting_id", _dbHelper.SafeGetString(reader, 10) },
+								{ "destination_id", _dbHelper.SafeGetString(reader, 11) }
               });
             }
           }
@@ -345,6 +348,7 @@ namespace _440DocumentManagement.Controllers
             destinationTypeId = customerSetting["destination_type_id"];
             destinationUsername = customerSetting["destination_username"];
             destinationPassword = customerSetting["destination_password"];
+						destinationId = customerSetting["destination_id"];
             userEmail = customerSetting["user_email"];
             userLastName = customerSetting["user_lastname"];
             customerName = customerSetting["customer_name"];
@@ -356,8 +360,8 @@ namespace _440DocumentManagement.Controllers
           {
             cmd.CommandText = "SELECT destination_access_token, destination_url, "
               + "destination_root_path, destination_type_id, "
-              + "destination_username, destination_password "
-              + "FROM customer_destinations "
+              + "destination_username, destination_password, destination_id "
+							+ "FROM customer_destinations "
               + "WHERE customer_id='TrialUser'";
 
             using (var trialSettingReader = cmd.ExecuteReader())
@@ -370,6 +374,7 @@ namespace _440DocumentManagement.Controllers
                 destinationTypeId = _dbHelper.SafeGetString(trialSettingReader, 3);
                 destinationUsername = _dbHelper.SafeGetString(trialSettingReader, 4);
                 destinationPassword = _dbHelper.SafeGetString(trialSettingReader, 5);
+								destinationId = _dbHelper.SafeGetString(trialSettingReader, 6);
               }
               else
               {
@@ -408,6 +413,14 @@ namespace _440DocumentManagement.Controllers
             setting_name = "PROJECT_DESTINATION_TYPE_ID",
             setting_value_data_type = "string",
           });
+
+					new ProjectSettingManagementController().Post(new ProjectSetting()
+					{
+						project_id = projectId,
+						setting_value = destinationId,
+						setting_name = "PROJECT_DESTINATION_ID",
+						setting_value_data_type = "string"
+					});
 
           if (destinationUsername != string.Empty)
           {

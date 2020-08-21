@@ -26,9 +26,6 @@ namespace _440DocumentManagement.Controllers
 				if (request != null)
 				{
 					DateTime _date = DateTime.UtcNow;
-					request.company_id = (request.company_id == null || string.IsNullOrEmpty(request.company_id)) ? Guid.NewGuid().ToString() : request.company_id;
-					request.company_name = (request.company_name == null || string.IsNullOrEmpty(request.company_name)) ? Guid.NewGuid().ToString() : request.company_name;
-					request.company_office_name = (request.company_office_name == null || string.IsNullOrEmpty(request.company_office_name)) ? Guid.NewGuid().ToString() : request.company_office_name;
 					request.contact_id = (request.contact_id == null || string.IsNullOrEmpty(request.contact_id)) ? Guid.NewGuid().ToString() : request.contact_id;
 					request.contact_role = (request.contact_role == null || string.IsNullOrEmpty(request.contact_role)) ? "contact" : request.contact_role;
 					request.contact_status = (request.contact_status == null || string.IsNullOrEmpty(request.contact_status)) ? "active" : request.contact_status;
@@ -87,10 +84,10 @@ namespace _440DocumentManagement.Controllers
 	company_id, company_name, company_office_id, company_office_name, contact_address1, contact_address2, contact_city, contact_country, contact_crm_id, contact_email, contact_firstname, contact_id, contact_lastname, contact_mobile_phone, contact_password, contact_phone, contact_photo_id, contact_record_source, contact_role, contact_state, contact_status, contact_title, contact_username, contact_verification_datetime, contact_verification_level, contact_zip, create_datetime, create_user_id, customer_id, edit_datetime, edit_user_id)
 	VALUES (@company_id, @company_name, @company_office_id, @company_office_name, @contact_address1, @contact_address2, @contact_city, @contact_country, @contact_crm_id, @contact_email, @contact_firstname, @contact_id, @contact_lastname, @contact_mobile_phone, @contact_password, @contact_phone, @contact_photo_id, @contact_record_source, @contact_role, @contact_state, @contact_status, @contact_title, @contact_username, @contact_verification_datetime, @contact_verification_level, @contact_zip, @create_datetime, @create_user_id, @customer_id, @edit_datetime, @edit_user_id);";
 						cmd.CommandText = query;
-						cmd.Parameters.AddWithValue("@company_id", request.company_id);
-						cmd.Parameters.AddWithValue("@company_name", request.company_name);
+						cmd.Parameters.AddWithValue("@company_id", (object)request.company_id ?? DBNull.Value);
+						cmd.Parameters.AddWithValue("@company_name", (object)request.company_name ?? DBNull.Value);
 						cmd.Parameters.AddWithValue("@company_office_id", (object)request.company_office_id ?? DBNull.Value);
-						cmd.Parameters.AddWithValue("@company_office_name", request.company_office_name);
+						cmd.Parameters.AddWithValue("@company_office_name", (object)request.company_office_name ?? DBNull.Value);
 						cmd.Parameters.AddWithValue("@contact_address1", (object)request.contact_address1 ?? DBNull.Value);
 						cmd.Parameters.AddWithValue("@contact_address2", (object)request.contact_address2 ?? DBNull.Value);
 						cmd.Parameters.AddWithValue("@contact_city", (object)request.contact_city ?? DBNull.Value);
