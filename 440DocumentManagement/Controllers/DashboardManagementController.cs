@@ -163,15 +163,6 @@ namespace SDAPI.Controllers
 					});
 				}
 
-				if (request.AnalyticType != "project_stage" && request.AnalyticType != "bid_month")
-				{
-					return BadRequest(new BaseErrorModel
-					{
-						Status = Constants.ApiStatus.ERROR,
-						Message = "Invalid analytic type"
-					});
-				}
-
 				var result = _dashboardManagementService.GetAnalyticData(request);
 				return Ok(result);
 			}

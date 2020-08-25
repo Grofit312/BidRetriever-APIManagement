@@ -191,7 +191,6 @@ namespace _440DocumentManagement.Controllers
 								["setting_value_data_type"] = _dbHelper.SafeGetString(reader, 4),
 								["setting_tooltiptext"] = _dbHelper.SafeGetString(reader, 5),
 							};
-
 							if (detailLevel == "all" || detailLevel == "admin")
 							{
 								result["setting_desc"] = _dbHelper.SafeGetString(reader, 6);

@@ -59,7 +59,6 @@ namespace _440DocumentManagement.Models
 		public string source_company_id { get; set; }
     public string source_company_contact_id { get; set; }
     public string source_user_id { get; set; }
-
 		public string project_assigned_office_id { get; set; }
 		public string project_assigned_office_name { get; set; }
 

@@ -54,5 +54,9 @@
 		public string project_customer_id { get; set; }
 
 		public string source_project_id { get; set; }
+		//public string contact_firstname { get; set; }
+		//public string contact_lastname { get; set; }
+		public string source_company_contact_id { get; set; }
+
 	}
 }
