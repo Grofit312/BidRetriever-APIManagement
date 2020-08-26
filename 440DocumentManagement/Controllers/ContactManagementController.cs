@@ -2,6 +2,7 @@ using _440DocumentManagement.Helpers;
 using _440DocumentManagement.Models.ContactManagement;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 using System;
 using System.Collections.Generic;
 
@@ -9,6 +10,7 @@ namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("Contact Management")]
 	public class ContactManagementController : Controller
 	{
 		private readonly DatabaseHelper _dbHelper;

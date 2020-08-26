@@ -4,11 +4,13 @@ using _440DocumentManagement.Helpers;
 using _440DocumentManagement.Models.CompanyManagement;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
 {
   [Produces("application/json")]
   [Route("api")]
+	[OpenApiTag("Company Management")]
   public class CompanyManagementController : Controller
   {
     private readonly DatabaseHelper _dbHelper;

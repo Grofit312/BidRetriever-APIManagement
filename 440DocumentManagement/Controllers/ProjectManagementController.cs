@@ -11,11 +11,13 @@ using Amazon.Lambda;
 using Dropbox.Api;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
 {
   [Produces("application/json")]
   [Route("api")]
+	[OpenApiTag("Project Management")]
   public class ProjectManagementController : Controller
   {
     private readonly DatabaseHelper _dbHelper;

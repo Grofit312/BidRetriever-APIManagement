@@ -2,11 +2,13 @@
 using _440DocumentManagement.Models.SystemAttribute;
 using _440DocumentManagement.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("System Attribute Management")]
 	public class SystemAttributeManagementController : Controller
 	{
 		private readonly DatabaseHelper _dbHelper;

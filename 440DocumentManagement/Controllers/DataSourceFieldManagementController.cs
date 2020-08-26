@@ -2,12 +2,14 @@
 using _440DocumentManagement.Models.DataSourceField;
 using _440DocumentManagement.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 using System;
 
 namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("Data Source Field Management")]
 	public class DataSourceFieldManagementController : Controller
 	{
 		private DatabaseHelper _dbHelper;

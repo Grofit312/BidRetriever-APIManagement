@@ -10,11 +10,13 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using NpgsqlTypes;
+using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
 {
     [Produces("application/json")]
     [Route("api")]
+		[OpenApiTag("Document Markup Management")]
     public class DocumentMarkupManagementController : Controller
     {
         private readonly DatabaseHelper _dbHelper;

@@ -2,12 +2,14 @@
 using _440DocumentManagement.Models;
 using _440DocumentManagement.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 using System;
 
 namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("Data View Field Setting Management")]
 	public class DataViewFieldSettingManagementController : Controller
 	{
 		private readonly DatabaseHelper _dbHelper;

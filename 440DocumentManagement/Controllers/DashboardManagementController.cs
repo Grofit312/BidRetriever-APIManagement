@@ -13,6 +13,7 @@ namespace SDAPI.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("Dashboard Management")]
 	public class DashboardManagementController : Controller
 	{
 		private readonly DatabaseHelper _dbHelper;
@@ -131,55 +132,7 @@ namespace SDAPI.Controllers
 				_dbHelper.CloseConnection();
 			}
 		}
-
-		[HttpGet]
-		[Route("GetAnalyticData")]
-		[OpenApiOperation("Gets the analytic data", "Gets the analytic data")]
-		[ProducesResponseType(typeof(BaseErrorModel), StatusCodes.Status400BadRequest)]
-		public IActionResult GetAnalyticData(GetAnalyticDataRequestModel request)
-		{
-			try
-			{
-				if (request == null)
-				{
-					return BadRequest(new BaseErrorModel
-					{
-						Status = Constants.ApiStatus.ERROR,
-						Message = "Request can't be null"
-					});
-				}
-
-				// Verify the required fields
-				var missingParameter = request.CheckRequiredParameters(new string[]
-				{
-					"CustomerId", "AnalyticType"
-				});
-				if (missingParameter != null)
-				{
-					return BadRequest(new BaseErrorModel
-					{
-						Status = Constants.ApiStatus.ERROR,
-						Message = $"{missingParameter} is required"
-					});
-				}
-
-				var result = _dashboardManagementService.GetAnalyticData(request);
-				return Ok(result);
-			}
-			catch (ApiException ex)
-			{
-				return BadRequest(new BaseErrorModel
-				{
-					Status = Constants.ApiStatus.ERROR,
-					Message = ex.Message
-				});
-			}
-			finally
-			{
-				_dbHelper.CloseConnection();
-			}
-		}
-
+		
 		[HttpGet]
 		[Route("GetDashboard")]
 		[OpenApiOperation(

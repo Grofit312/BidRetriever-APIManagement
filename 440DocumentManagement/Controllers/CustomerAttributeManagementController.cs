@@ -4,11 +4,13 @@ using _440DocumentManagement.Helpers;
 using _440DocumentManagement.Models.CustomerAttribute;
 using _440DocumentManagement.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("Customer Attribute Management")]
 	public class CustomerAttributeManagementController : Controller
 	{
 		private readonly DatabaseHelper _dbHelper;

@@ -5,11 +5,13 @@ using _440DocumentManagement.Helpers;
 using _440DocumentManagement.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("Published Document Management")]
 	public class PublishedDocumentManagementController : Controller
 	{
 		private readonly DatabaseHelper _dbHelper;

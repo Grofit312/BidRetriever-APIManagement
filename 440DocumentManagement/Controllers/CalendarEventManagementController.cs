@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using _440DocumentManagement.Helpers;
 using _440DocumentManagement.Models;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("Calendar Event Management")]
 	public class CalendarEventManagementController : Controller
 	{
 		private readonly DatabaseHelper _dbHelper;

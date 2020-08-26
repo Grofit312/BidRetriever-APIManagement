@@ -5,11 +5,13 @@ using _440DocumentManagement.Helpers;
 using _440DocumentManagement.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
+using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("Valid Pattern Management")]
 	public class ValidPatternManagementController : Controller
 	{
 		private readonly DatabaseHelper _dbHelper;

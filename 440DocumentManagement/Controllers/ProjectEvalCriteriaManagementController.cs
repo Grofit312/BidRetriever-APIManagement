@@ -2,6 +2,7 @@
 using _440DocumentManagement.Models.ProjectEvalCriteria;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 using System;
 using System.Collections.Generic;
 
@@ -9,6 +10,7 @@ namespace _440DocumentManagement.Controllers
 {
     [Produces("application/json")]
     [Route("api")]
+		[OpenApiTag("Project Eval Criteria Management")]
     public class ProjectEvalCriteriaManagementController : Controller
     {
         private readonly DatabaseHelper _dbHelper;

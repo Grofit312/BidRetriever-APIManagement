@@ -2,11 +2,13 @@
 using _440DocumentManagement.Models.DataViewFilterModel;
 using _440DocumentManagement.Services.Interface;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("Data View Filter Management")]
 	public class DataViewFilterManagementController : Controller
 	{
 		private readonly DatabaseHelper _dbHelper;

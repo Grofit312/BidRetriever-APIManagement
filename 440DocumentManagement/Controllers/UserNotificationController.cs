@@ -5,11 +5,13 @@ using _440DocumentManagement.Models;
 using _440DocumentManagement.Models.Notification;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("User Notification Management")]
 	public class UserNotificationController : Controller
 	{
 		private readonly DatabaseHelper _dbHelper;

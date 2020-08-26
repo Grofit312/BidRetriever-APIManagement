@@ -5,6 +5,7 @@ using Amazon.SimpleEmail;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
+using NSwag.Annotations;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -14,6 +15,7 @@ namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("Sharing Management")]
 	public class SharingManagementController : Controller
 	{
 		private readonly IAmazonSimpleEmailService sesClient;

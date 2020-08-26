@@ -6,11 +6,13 @@ using _440DocumentManagement.Helpers;
 using _440DocumentManagement.Models.ProjectSourceManagement;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("Project Source Management")]
 	public class ProjectSourceManagementController : Controller
 	{
 		private readonly DatabaseHelper _dbHelper;

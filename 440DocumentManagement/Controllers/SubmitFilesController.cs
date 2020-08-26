@@ -1,10 +1,12 @@
 ﻿
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("Submit Files Management")]
 	public class SubmitFilesController : Controller
 	{
 		//readonly string _924TableName = "924ProjectFileRetrieval";

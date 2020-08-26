@@ -10,11 +10,13 @@ using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Npgsql;
+using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("Document Markup Slipsheet Management")]
 	public class DocumentMarkupSlipsheetController : Controller
 	{
 		private readonly DatabaseHelper _dbHelper;

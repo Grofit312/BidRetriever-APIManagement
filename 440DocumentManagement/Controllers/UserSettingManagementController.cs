@@ -4,11 +4,13 @@ using _440DocumentManagement.Helpers;
 using _440DocumentManagement.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("User Setting Management")]
 	public class UserSettingManagementController : Controller
 	{
 		private readonly DatabaseHelper _dbHelper;

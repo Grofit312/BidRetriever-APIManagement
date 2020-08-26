@@ -7,11 +7,13 @@ using _440DocumentManagement.Models.ProjectRelationship;
 using _440DocumentManagement.Services.Interface;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
 {
     [Produces("application/json")]
     [Route("api")]
+		[OpenApiTag("Project Relationship Management")]
     public class ProjectRelationshipManagementController : Controller
     {
         private readonly DatabaseHelper _dbHelper;

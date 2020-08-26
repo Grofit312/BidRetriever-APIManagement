@@ -2,6 +2,7 @@ using _440DocumentManagement.Helpers;
 using _440DocumentManagement.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,6 +12,7 @@ namespace _440DocumentManagement.Controllers
 {
   [Produces("application/json")]
   [Route("api")]
+	[OpenApiTag("Note Management")]
   public class NoteManagementController : Controller
   {
     private readonly DatabaseHelper _dbHelper;

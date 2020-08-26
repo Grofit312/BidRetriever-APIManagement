@@ -1,6 +1,7 @@
 ﻿using _440DocumentManagement.Helpers;
 using _440DocumentManagement.Models;
 using Microsoft.AspNetCore.Mvc;
+using NSwag.Annotations;
 using System;
 using System.Collections.Generic;
 
@@ -8,6 +9,7 @@ namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("Application Log Management")]
 	public class ApplicationLogController : Controller
 	{
 		private readonly DatabaseHelper _dbHelper;

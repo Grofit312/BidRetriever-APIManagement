@@ -14,11 +14,13 @@ using Amazon.Lambda;
 using Amazon.Lambda.Model;
 using System.Linq;
 using Microsoft.AspNetCore.Http;
+using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
 	[Route("api")]
+	[OpenApiTag("Document Management")]
 	public class DocumentManagementController : Controller
 	{
 		private DatabaseHelper _dbHelper;
