@@ -17,6 +17,8 @@ namespace _440DocumentManagement.Services.Concrete
 
 		public string CreateRecord(DashboardPanelModel newRecord)
 		{
+			newRecord.PanelStatus = newRecord.PanelStatus ?? "active";
+
 			var newRecordId = _baseService.CreateRecord(
 				newRecord,
 				Constants.ApiTables.DASHBOARD_PANEL.TableName,

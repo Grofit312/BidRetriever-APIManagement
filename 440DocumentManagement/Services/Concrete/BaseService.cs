@@ -145,9 +145,12 @@ namespace _440DocumentManagement.Services.Concrete
 						{
 							if (string.IsNullOrEmpty(where))
 							{
-								where = " WHERE ";
+								where = $" WHERE {whereQueries}";
 							}
-							where += $"({whereQueries})";
+							else
+							{
+								where += $"AND {whereQueries}";
+							}
 						}
 
 						if (string.IsNullOrEmpty(detailLevel))

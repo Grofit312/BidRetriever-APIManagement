@@ -113,6 +113,10 @@ namespace _440DocumentManagement.Models.Dashboard
 		[JsonProperty("device_id")]
 		[Description("")]
 		public string DeviceId { get; set; }
+		[BindProperty(Name = "dashboard_status")]
+		[JsonProperty("dashboard_status")]
+		[Description("This is one of the following values:  draft, active, deleted, archived, inactive.")]
+		public string DashboardStatus { get; set; }
 	}
 
 	public class DashboardGetRequestModel : BaseModel

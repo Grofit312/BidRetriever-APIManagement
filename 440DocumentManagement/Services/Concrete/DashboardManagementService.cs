@@ -24,6 +24,7 @@ namespace _440DocumentManagement.Services.Concrete
 		{
 			newRecord.CustomerId = newRecord.CustomerId ?? "default";
 			newRecord.DeviceId = newRecord.DeviceId ?? "default";
+			newRecord.DashboardStatus = newRecord.DashboardStatus ?? "active";
 
 			var newRecordId = _baseService.CreateRecord(
 				newRecord,

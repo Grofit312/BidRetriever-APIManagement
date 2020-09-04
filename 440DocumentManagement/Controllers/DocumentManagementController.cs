@@ -1052,6 +1052,18 @@ namespace _440DocumentManagement.Controllers
 									return BadRequest(new { status = "invalid folder_path" });
 								}
 
+								var matchedStartIndex = 0;
+								while (matchedStartIndex < folderNames.Length)
+								{
+									if (folderNames[matchedStartIndex] != __getRootFolderName(folderContent.folder_type))
+									{
+										break;
+									}
+
+									matchedStartIndex++;
+								}
+								folderNames = folderNames.Where((item, index) => index >= matchedStartIndex).ToArray();
+
 								for (var index = 0; index < folderNames.Length; index++)
 								{
 									var checkResult = __checkFolderNameExists(folderContent.project_id, folderId, folderNames[index]);

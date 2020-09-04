@@ -97,6 +97,10 @@ namespace _440DocumentManagement.Models.DashboardPanel
 		[JsonProperty("panel_start_date_offset")]
 		[Description("The start date time for the panel as an offset from today. This value will be defined in intervals from the current date. A value of -30 would start the data 30 intervals prior to todays date. A value of zero would only return future data since the start date would be zero days from todays date. A value of 7 would return data starting seven intervals in the future. If a value is not provided, the system will default to a value of zero.")]
 		public int? PanelStartDateOffset { get; set; }
+		[BindProperty(Name = "panel_status")]
+		[JsonProperty("panel_status")]
+		[Description("The status of this dashboard panel")]
+		public string PanelStatus { get; set; }
 	}
 
 	public class DashboardPanelCreateResponseModel : BaseModel
@@ -133,6 +137,10 @@ namespace _440DocumentManagement.Models.DashboardPanel
 		[JsonProperty("dashboard_id")]
 		[Description("")]
 		public string DashboardId { get; set; }
+		[BindProperty(Name = "panel_status")]
+		[JsonProperty("panel_status")]
+		[Description("The status of this dashboard panel")]
+		public string PanelStatus { get; set; }
 	}
 
 	public class DashboardPanelGetRequestModel : BaseModel
@@ -231,5 +239,9 @@ namespace _440DocumentManagement.Models.DashboardPanel
 		[JsonProperty("panel_start_date_offset")]
 		[Description("The start date time for the panel as an offset from today. This value will be defined in intervals from the current date. A value of -30 would start the data 30 intervals prior to todays date. A value of zero would only return future data since the start date would be zero days from todays date. A value of 7 would return data starting seven intervals in the future. If a value is not provided, the system will default to a value of zero.")]
 		public int? PanelStartDateOffset { get; set; } = ApiExtension.UNDEFINED_INT;
+		[BindProperty(Name = "panel_status")]
+		[JsonProperty("panel_status")]
+		[Description("The status of this dashboard panel")]
+		public string PanelStatus { get; set; } = ApiExtension.UNDEFINED_STRING;
 	}
 }

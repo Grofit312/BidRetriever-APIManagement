@@ -1810,13 +1810,15 @@ namespace _440DocumentManagement.Controllers
               + "COUNT(project_documents.doc_id) FILTER (WHERE project_documents.process_status='queued' or project_documents.process_status='processing') AS submission_pending_file_count, "
               + "COUNT(project_documents.doc_id) FILTER (WHERE project_documents.doc_type LIKE '%_single_sheet_plan') AS submission_plan_count, "
               + "project_submissions.source_url, project_submissions.project_id, project_submissions.edit_datetime, "
-              + "project_submissions.submission_email_file_bucket, project_submissions.submission_email_file_key, project_submissions.submission_type "
-              + "FROM project_submissions "
+              + "project_submissions.submission_email_file_bucket, project_submissions.submission_email_file_key, project_submissions.submission_type, "
+							+ "customer_companies.company_name "
+							+ "FROM project_submissions "
               + "LEFT JOIN projects on project_submissions.project_id=projects.project_id "
               + "LEFT JOIN source_system_types on projects.source_sys_type_id=source_system_types.source_sys_type_id "
+							+ "LEFT JOIN customer_companies ON projects.source_company_id = customer_companies.company_id "
               + "LEFT JOIN project_documents ON project_submissions.project_submission_id=project_documents.submission_id "
               + whereString
-              + "GROUP BY project_submissions.project_submission_id, projects.source_sys_type_id, source_system_types.source_type_name, projects.project_admin_user_id";
+              + "GROUP BY project_submissions.project_submission_id, projects.source_sys_type_id, source_system_types.source_type_name, projects.project_admin_user_id, customer_companies.company_name";
 
             var resultList = new List<Dictionary<string, string>>();
 
@@ -1843,6 +1845,7 @@ namespace _440DocumentManagement.Controllers
                 result.Add("submission_email_file_bucket", _dbHelper.SafeGetString(reader, 19));
                 result.Add("submission_email_file_key", _dbHelper.SafeGetString(reader, 20));
                 result.Add("submission_type", _dbHelper.SafeGetString(reader, 21));
+								result.Add("source_company_name", _dbHelper.SafeGetString(reader, 22));
 
                 if (detailLevel == "all" || detailLevel == "admin")
                 {
