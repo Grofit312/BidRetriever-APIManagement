@@ -117,6 +117,10 @@ namespace _440DocumentManagement.Models.Dashboard
 		[JsonProperty("dashboard_status")]
 		[Description("This is one of the following values:  draft, active, deleted, archived, inactive.")]
 		public string DashboardStatus { get; set; }
+		[BindProperty(Name = "dashboard_type")]
+		[JsonProperty("dashboard_type")]
+		[Description("This parameter identifies if the dashboard is a normal, night, or Alert dashboard.")]
+		public string DashboardType { get; set; }
 	}
 
 	public class DashboardGetRequestModel : BaseModel
