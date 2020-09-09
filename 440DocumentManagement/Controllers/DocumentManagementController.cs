@@ -744,7 +744,8 @@ namespace _440DocumentManagement.Controllers
 					cmd.CommandText = "SELECT project_documents.doc_id, project_documents.doc_type, project_documents.project_id, "
 							+ "projects.project_admin_user_id, users.customer_id, project_documents.project_doc_original_filename, files.file_type, "
 							+ "files.file_id, files.file_size, project_documents.status, project_folder_contents.folder_path, "
-							+ "project_documents.process_status, project_submissions.submission_name, project_documents.create_datetime "
+							+ "project_documents.process_status, project_submissions.submission_name, project_documents.create_datetime, "
+							+ "project_folder_contents.folder_id "
 							+ "FROM files "
 							+ "LEFT JOIN document_files ON document_files.file_id=files.file_id "
 							+ "LEFT JOIN project_documents ON project_documents.doc_id=document_files.doc_id "
@@ -773,7 +774,8 @@ namespace _440DocumentManagement.Controllers
 								{ "file_size", _dbHelper.SafeGetString(reader, 8) },
 								{ "status", _dbHelper.SafeGetString(reader, 9) },
 								{ "process_status", _dbHelper.SafeGetString(reader, 11) },
-								{ "create_datetime", _dbHelper.SafeGetDatetimeString(reader, 13) }
+								{ "create_datetime", _dbHelper.SafeGetDatetimeString(reader, 13) },
+								{ "folder_id", _dbHelper.SafeGetString(reader, 14) }
 							};
 
 							var folderPath = _dbHelper.SafeGetString(reader, 10);
