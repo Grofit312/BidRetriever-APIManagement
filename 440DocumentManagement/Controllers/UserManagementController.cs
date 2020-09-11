@@ -1144,13 +1144,13 @@ namespace _440DocumentManagement.Controllers
 					whereString = whereString.Remove(whereString.Length - 5);
 
 					cmd.CommandText = "SELECT users.user_id, users.customer_id, customers.customer_name, users.status, "
-																					+ "users.user_firstname, users.user_lastname, users.user_email, users.user_phone, "
-																					+ "users.user_role, users.user_address1, users.user_address2, users.user_city, "
-																					+ "users.user_state, users.user_zip, users.user_country, customers.customer_service_area, "
-																					+ "users.create_datetime, users.edit_datetime, users.user_photo_id, "
-																					+ "users.user_crm_id, users.create_user_id, users.edit_user_id, users.customer_office_id, users.user_password, "
-																					+ "users.user_displayname "
-																					+ "FROM customers RIGHT OUTER JOIN users ON users.customer_id=customers.customer_id" + whereString;
+						+ "users.user_firstname, users.user_lastname, users.user_email, users.user_phone, "
+						+ "users.user_role, users.user_address1, users.user_address2, users.user_city, "
+						+ "users.user_state, users.user_zip, users.user_country, customers.customer_service_area, "
+						+ "users.create_datetime, users.edit_datetime, users.user_photo_id, "
+						+ "users.user_crm_id, users.create_user_id, users.edit_user_id, users.customer_office_id, users.user_password, "
+						+ "users.user_displayname, users.user_username "
+						+ "FROM customers RIGHT OUTER JOIN users ON users.customer_id=customers.customer_id" + whereString;
 
 					if (!string.IsNullOrEmpty(request.user_email))
 					{
@@ -1173,6 +1173,7 @@ namespace _440DocumentManagement.Controllers
 								{ "user_email", _dbHelper.SafeGetString(reader, 6) },
 								{ "user_phone", _dbHelper.SafeGetString(reader, 7) },
 								{ "user_role", _dbHelper.SafeGetString(reader, 8) },
+								{ "user_username", _dbHelper.SafeGetString(reader, 25) }
 							};
 
 							if (detailLevel == "all" || detailLevel == "admin")
@@ -1195,7 +1196,7 @@ namespace _440DocumentManagement.Controllers
 								user["user_crm_id"] = _dbHelper.SafeGetString(reader, 19);
 								user["create_user_id"] = _dbHelper.SafeGetString(reader, 20);
 								user["edit_user_id"] = _dbHelper.SafeGetString(reader, 21);
-								user["user_password"] = string.IsNullOrEmpty(_dbHelper.SafeGetString(reader, 22)) ? "not-existed" : "existed";
+								user["user_password"] = string.IsNullOrEmpty(_dbHelper.SafeGetString(reader, 23)) ? "not-existed" : "existed";
 							}
 
 							return Ok(user);
