@@ -102,9 +102,11 @@ namespace _440DocumentManagement.Controllers
 				if (!isDuplicatedDocument)
 				{
 					// create source_current folder structure, except split files
-					if (projectDocument.process_status == "completed" && string.IsNullOrEmpty(projectDocument.doc_parent_id))
-					{
-						var isSourceFileSubmissionEnabled = __isSourceFileSubmissionFolderEnabled(projectDocument.project_id);
+                    // Note: commented this line to resolve folder content issue for original plan files
+					//if (projectDocument.process_status == "completed" && string.IsNullOrEmpty(projectDocument.doc_parent_id))
+                    if (string.IsNullOrEmpty(projectDocument.doc_parent_id))
+                        {
+                            var isSourceFileSubmissionEnabled = __isSourceFileSubmissionFolderEnabled(projectDocument.project_id);
 
 						var createFolderContentResult = Post(new DLFolderContent()
 						{
