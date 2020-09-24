@@ -23,6 +23,7 @@
 		public string status { get; set; }
 		public string user_photo_id { get; set; }
 		public string user_role { get; set; }
+        public string customer_id { get; set; }
 		public string customer_office_id { get; set; }
 	}
 }

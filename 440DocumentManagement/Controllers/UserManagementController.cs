@@ -655,12 +655,12 @@ namespace _440DocumentManagement.Controllers
 								+ "user_id, user_email, user_firstname, user_lastname, user_displayname, user_phone, "
 								+ "user_photo_id, "
 								+ "user_address1, user_address2, user_city, user_state, user_zip, "
-								+ "user_country, user_crm_id, user_username, user_password, status, create_datetime, edit_datetime, user_role, customer_office_id) "
+								+ "user_country, user_crm_id, user_username, user_password, status, create_datetime, edit_datetime, user_role, customer_id, customer_office_id) "
 								+ "VALUES(@user_id, @user_email, @user_firstname, @user_lastname, @user_displayname, @user_phone, "
 								+ "@user_photo_id, "
 								+ "@user_address1, @user_address2, @user_city, @user_state, @user_zip, "
 								+ "@user_country, @user_crm_id, @user_username, @user_password, "
-								+ "@status, @create_datetime, @edit_datetime, @user_role, @customer_office_id)";
+								+ "@status, @create_datetime, @edit_datetime, @user_role, @customer_id, @customer_office_id)";
 
 							var userDisplayName = string.IsNullOrEmpty(user.user_firstname) || string.IsNullOrEmpty(user.user_lastname)
 									? $"{user.user_lastname}{user.user_firstname}"
@@ -686,6 +686,7 @@ namespace _440DocumentManagement.Controllers
 							cmd.Parameters.AddWithValue("edit_datetime", timestamp);
 							cmd.Parameters.AddWithValue("user_photo_id", user.user_photo_id ?? "");
 							cmd.Parameters.AddWithValue("user_role", user.user_role ?? "user");
+                            cmd.Parameters.AddWithValue("customer_id", user.customer_id ?? "");
 							cmd.Parameters.AddWithValue("customer_office_id", user.customer_office_id ?? "");
 
 							cmd.ExecuteNonQuery();

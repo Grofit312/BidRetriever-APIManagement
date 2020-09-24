@@ -957,13 +957,23 @@ namespace _440DocumentManagement.Controllers
 						cmd.Parameters.AddWithValue("display_name", projectDocument.display_name ?? "");
 						cmd.Parameters.AddWithValue("doc_size", projectDocument.doc_size ?? "");
 
-						cmd.ExecuteNonQuery();
+						int rowsAffected = cmd.ExecuteNonQuery();
 
-						return Ok(new
-						{
-							doc_id = docId,
-							status = "completed"
-						});
+                        if (rowsAffected > 0)
+                        {
+                            return Ok(new
+                            {
+                                doc_id = docId,
+                                status = "completed"
+                            });
+                        }
+                        else
+                        {
+                            return BadRequest(new
+                            {
+                                status = "Failed to create project document"
+                            });
+                        }
 					}
 					else
 					{
