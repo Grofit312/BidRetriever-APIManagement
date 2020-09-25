@@ -162,50 +162,50 @@ namespace _440DocumentManagement.Controllers
 						// copy all “files” related to the project_document already linked to the file_id
 						var copyResult = __copyFiles(projectDocument.file_id, docId);
 
-						if (copyResult != null)
+						if (copyResult > 0)
 						{
-							__deleteProjectDocument(docId);
-							__deleteFolderContent(folderContentId);
-							return BadRequest(new { status = copyResult });
-						}
+                            return Ok(new
+                            {
+                                doc_id = docId,
+                                status = "completed"
+                            });
+                        }
 					}
-					else
+
+					// create file / document file 
+					var addDocumentFileResult = Post(new ProjectDocumentFile()
 					{
-						// create file / document file 
-						var addDocumentFileResult = Post(new ProjectDocumentFile()
-						{
-							doc_id = docId,
-							file_id = projectDocument.file_id,
-							file_size = projectDocument.file_size,
-							file_type = "source_system_original",
-							file_original_filename = projectDocument.file_original_filename,
-							bucket_name = projectDocument.bucket_name ?? "",
-							file_original_application = projectDocument.file_original_application,
-							file_original_author = projectDocument.file_original_author,
-							file_original_pdf_version = projectDocument.file_original_pdf_version,
-							file_original_document_title = projectDocument.file_original_document_title,
-							file_original_create_datetime = projectDocument.file_original_create_datetime,
-							file_original_modified_datetime = projectDocument.file_original_modified_datetime,
-							parent_original_create_datetime = projectDocument.parent_original_create_datetime,
-							parent_original_modified_datetime = projectDocument.parent_original_modified_datetime,
-							file_original_document_bookmark = projectDocument.file_original_document_bookmark,
-						}, true);
+						doc_id = docId,
+						file_id = projectDocument.file_id,
+						file_size = projectDocument.file_size,
+						file_type = "source_system_original",
+						file_original_filename = projectDocument.file_original_filename,
+						bucket_name = projectDocument.bucket_name ?? "",
+						file_original_application = projectDocument.file_original_application,
+						file_original_author = projectDocument.file_original_author,
+						file_original_pdf_version = projectDocument.file_original_pdf_version,
+						file_original_document_title = projectDocument.file_original_document_title,
+						file_original_create_datetime = projectDocument.file_original_create_datetime,
+						file_original_modified_datetime = projectDocument.file_original_modified_datetime,
+						parent_original_create_datetime = projectDocument.parent_original_create_datetime,
+						parent_original_modified_datetime = projectDocument.parent_original_modified_datetime,
+						file_original_document_bookmark = projectDocument.file_original_document_bookmark,
+					}, true);
 
-						if (addDocumentFileResult is BadRequestObjectResult)
-						{
-							__deleteProjectDocument(docId);
-							__deleteFolderContent(folderContentId);
-							return addDocumentFileResult;
-						}
+					if (addDocumentFileResult is BadRequestObjectResult)
+					{
+						__deleteProjectDocument(docId);
+						__deleteFolderContent(folderContentId);
+						return addDocumentFileResult;
 					}
-				}
+                }
 
-				return Ok(new
-				{
-					doc_id = docId,
-					status = "completed"
-				});
-			}
+                return Ok(new
+                {
+                    doc_id = docId,
+                    status = "completed"
+                });
+            }
 			catch (Exception exception)
 			{
 				__deleteFolderContent(folderContentId);
@@ -2769,7 +2769,7 @@ namespace _440DocumentManagement.Controllers
 			}
 		}
 
-		private string __copyFiles(string fileId, string docId)
+		private int __copyFiles(string fileId, string docId)
 		{
 			var docFileIds = new List<string>();
 
@@ -2794,7 +2794,7 @@ namespace _440DocumentManagement.Controllers
 
 					if (inQueryValue == "(")
 					{
-						return "file_id already exists, but no linked records found on document_files";
+                        return 0;
 					}
 
 					inQueryValue = inQueryValue.Remove(inQueryValue.Length - 1) + ")";
@@ -2813,6 +2813,8 @@ namespace _440DocumentManagement.Controllers
 						reader.Close();
 					}
 
+                    var copiedCount = 0;
+
 					foreach (var belongedFileId in belongedFileIds)
 					{
 						var docFileId = Guid.NewGuid().ToString();
@@ -2827,16 +2829,23 @@ namespace _440DocumentManagement.Controllers
 
 						if (createDocumentFileResult is BadRequestObjectResult)
 						{
+                            // Nothing do here
+                            /*
 							foreach (var id in docFileIds)
 							{
 								__deleteDocumentFile(id);
 							}
 
-							return "failed to copy document_file record";
+							return copiedCount;
+                            */
 						}
+                        else
+                        {
+                            copiedCount++;
+                        }
 					}
 
-					return null;
+					return copiedCount;
 				}
 			}
 			catch (Exception exception)
@@ -2846,7 +2855,7 @@ namespace _440DocumentManagement.Controllers
 					__deleteDocumentFile(id);
 				}
 
-				return exception.Message;
+				return 0;
 			}
 		}
 
