@@ -58,5 +58,6 @@
 		//public string contact_lastname { get; set; }
 		public string source_company_contact_id { get; set; }
 
+        public int num_proj_sources { get; set; }
 	}
 }

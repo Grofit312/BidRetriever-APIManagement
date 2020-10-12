@@ -11,6 +11,7 @@
 		public string event_attendee_id { get; set; }
 		public string event_attendee_optional { get; set; }
 		public string event_attendee_status { get; set; }
+        public string event_attendee_type { get; set; }
 		public string status { get; set; }
 	}
 }

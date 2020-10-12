@@ -330,7 +330,7 @@ namespace _440DocumentManagement.Controllers
 
 						return Ok(new
 						{
-							status = "completed "
+							status = "completed"
 						});
 					}
 				}
@@ -348,7 +348,67 @@ namespace _440DocumentManagement.Controllers
 			}
 		}
 
-		[HttpGet]
+        [HttpGet]
+        [Route("GetValidSheetNumber")]
+        public IActionResult Get(ValidSheetNumberGetRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(request.sheet_number))
+                {
+                    return BadRequest(new
+                    {
+                        status = "sheet_number is not provided"
+                    });
+                }
+
+                using (var cmd = _dbHelper.SpawnCommand())
+                {
+                    cmd.CommandText = "SELECT sheet_number, sheet_number_stripped, sheet_number_pattern, manual_occurrences, ocr_occurrences, stripped_pattern, create_datetime, edit_datetime "
+                        + $"FROM sheet_number_library WHERE sheet_number='{request.sheet_number}'";
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            var result = new Dictionary<string, object>
+                            {
+                                { "sheet_number", _dbHelper.SafeGetString(reader, 0) },
+                                { "sheet_number_stripped", _dbHelper.SafeGetString(reader, 1) },
+                                { "sheet_number_pattern", _dbHelper.SafeGetString(reader, 2) },
+                                { "manual_occurrences", _dbHelper.SafeGetIntegerRaw(reader, 3) },
+                                { "ocr_occurrences", _dbHelper.SafeGetIntegerRaw(reader, 4) },
+                                { "stripped_pattern", _dbHelper.SafeGetString(reader, 5) },
+                                { "create_datetime", _dbHelper.SafeGetDatetimeString(reader, 6) },
+                                { "edit_datetime", _dbHelper.SafeGetDatetimeString(reader, 7) },
+                            };
+
+                            return Ok(result);
+                        }
+                        else
+                        {
+                            return BadRequest(new
+                            {
+                                status = "sheet_number is not found"
+                            });
+                        }
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(new
+                {
+                    status = exception.Message
+                });
+            }
+            finally
+            {
+                _dbHelper.CloseConnection();
+            }
+        }
+
+        [HttpGet]
 		[Route("FindValidSheetNumbers")]
 		public IActionResult Get(ValidSheetNumberFindRequest request)
 		{
@@ -356,7 +416,24 @@ namespace _440DocumentManagement.Controllers
 			{
 				using (var cmd = _dbHelper.SpawnCommand())
 				{
-					cmd.CommandText = "SELECT sheet_number, sheet_number_stripped, sheet_number_pattern, manual_occurrences, ocr_occurrences, stripped_pattern, create_datetime, edit_datetime FROM sheet_number_library";
+                    var where = " WHERE 1=1 AND ";
+
+                    if (!string.IsNullOrEmpty(request.sheet_number_pattern))
+                    {
+                        where += $"sheet_number_pattern='{request.sheet_number_pattern}' AND ";
+                    }
+                    if (!string.IsNullOrEmpty(request.sheet_number_stripped))
+                    {
+                        where += $"sheet_number_stripped='{request.sheet_number_stripped}' AND ";
+                    }
+                    if (!string.IsNullOrEmpty(request.stripped_pattern))
+                    {
+                        where += $"stripped_pattern='{request.stripped_pattern}' AND ";
+                    }
+
+                    where = where.Remove(where.Length - 5);
+
+                    cmd.CommandText = "SELECT sheet_number, sheet_number_stripped, sheet_number_pattern, manual_occurrences, ocr_occurrences, stripped_pattern, create_datetime, edit_datetime FROM sheet_number_library" + where;
 
 					using (var reader = cmd.ExecuteReader())
 					{

@@ -433,35 +433,39 @@ namespace _440DocumentManagement.Controllers
 					});
 				}
 
-				using (var cmd = _dbHelper.SpawnCommand())
-				{
-					var startDate = new DateTime(request.DailyDigestDate.Value.Year, request.DailyDigestDate.Value.Month, request.DailyDigestDate.Value.Day, 10, 0, 0, DateTimeKind.Utc);
-					cmd.CommandText = 
-						"SELECT "
-							+ "customers.customer_id as customer_id, "
-							+ "customers.customer_name as customer_name, "
-							+ "count( DISTINCT project_documents.doc_id ) AS num_docs_changed, "
-							+ "projects.project_bid_datetime as project_bid_datetime, "
-							+ "users.user_displayname AS project_admin_user_displayname, "
-							+ "users.user_email AS project_admin_user_email, "
-							+ "folder_transaction_log.project_id as project_id, "
-							+ "projects.project_name as project_name, "
-							+ "projects.project_assigned_office_name as project_office_name, "
-							+ "projects.project_admin_user_id as admin_user_id, "
-							+ "projects.project_assigned_office_id as company_office_id "
-						+ "FROM folder_transaction_log "
-						+ "LEFT JOIN projects ON folder_transaction_log.project_id = projects.project_id "
-						+ "LEFT JOIN project_documents ON folder_transaction_log.doc_id = project_documents.doc_id "
-						+ "LEFT JOIN customers ON projects.project_customer_id = customers.customer_id "
-						+ "LEFT JOIN users ON projects.project_admin_user_id = users.user_id "
-						+ "WHERE "
-							+ "project_documents.create_datetime >= @start_date "
-							+ "AND project_documents.create_datetime <= @start_date + interval '1 day' "
-							+ "AND projects.auto_update_status = 'active' "
-						+ "GROUP BY "
-							+ "customers.customer_id, customers.customer_name, projects.project_name, folder_transaction_log.project_id, "
-							+ "projects.project_admin_user_id, projects.project_assigned_office_name, projects.project_bid_datetime, "
-							+ "users.user_displayname, users.user_email, projects.project_assigned_office_id "
+                using (var cmd = _dbHelper.SpawnCommand())
+                {
+                    var startDate = new DateTime(request.DailyDigestDate.Value.Year, request.DailyDigestDate.Value.Month, request.DailyDigestDate.Value.Day, 0, 0, 0, DateTimeKind.Utc);
+                    cmd.CommandText =
+                        "SELECT "
+                            + "customers.customer_id as customer_id, "
+                            + "customers.customer_name as customer_name, "
+                            + "project_documents.submission_id, "
+                            + "count( DISTINCT project_documents.doc_id ) AS num_docs_changed, "
+                            + "projects.project_bid_datetime as project_bid_datetime, "
+                            + "users.user_displayname AS project_admin_user_displayname, "
+                            + "users.user_email AS project_admin_user_email, "
+                            + "folder_transaction_log.project_id as project_id, "
+                            + "projects.project_name as project_name, "
+                            + "projects.project_assigned_office_name as project_office_name, "
+                            + "projects.project_admin_user_id as admin_user_id, "
+                            + "projects.project_assigned_office_id as company_office_id "
+                        + "FROM folder_transaction_log "
+                        + "LEFT JOIN projects ON folder_transaction_log.project_id = projects.project_id "
+                        + "LEFT JOIN project_documents ON folder_transaction_log.doc_id = project_documents.doc_id "
+                        + "LEFT JOIN customers ON projects.project_customer_id = customers.customer_id "
+                        + "LEFT JOIN users ON projects.project_admin_user_id = users.user_id "
+                        + "WHERE "
+                            + "project_documents.create_datetime >= @start_date "
+                            + (string.IsNullOrEmpty(request.UserId) ? " " : $"AND projects.project_admin_user_id='{request.UserId}' ")
+                            + (string.IsNullOrEmpty(request.CompanyId) ? " " : $"AND customers.customer_id='{request.CompanyId}' ")
+                            + "AND project_documents.create_datetime <= @start_date + interval '1 day' "
+                        + "GROUP BY "
+                            + "customers.customer_id, customers.customer_name, users.user_displayname, users.user_email, "
+                            + "project_documents.submission_id, "
+                            + "projects.project_name, folder_transaction_log.project_id, "
+                            + "projects.project_admin_user_id, projects.project_assigned_office_name, projects.project_bid_datetime, "
+							+ " projects.project_assigned_office_id "
 						+ "ORDER BY "
 							+ "customers.customer_name ASC, projects.project_assigned_office_name ASC, projects.project_name ASC ";
 
@@ -478,18 +482,19 @@ namespace _440DocumentManagement.Controllers
 								{
 									{ "customer_id", _dbHelper.SafeGetString(reader, 0) },
 									{ "customer_name", _dbHelper.SafeGetString(reader, 1) },
-									{ "num_docs_changed", _dbHelper.SafeGetIntegerRaw(reader, 2) },
-									{ "project_bid_datetime", _dbHelper.SafeGetDatetimeString(reader, 3) },
-									{ "project_admin_user_displayname", _dbHelper.SafeGetString(reader, 4) },
-									{ "project_admin_user_email", _dbHelper.SafeGetString(reader, 5) },
-									{ "project_id", _dbHelper.SafeGetString(reader, 6) },
-									{ "project_name", _dbHelper.SafeGetString(reader, 7) },
-									{ "project_office_name", _dbHelper.SafeGetString(reader, 8) },
-									{ "admin_user_id", _dbHelper.SafeGetString(reader, 9) },
-									{ "company_office_id", _dbHelper.SafeGetString(reader, 10) },
+                                    { "submission_id", _dbHelper.SafeGetString(reader, 2) },
+									{ "num_docs_changed", _dbHelper.SafeGetIntegerRaw(reader, 3) },
+									{ "project_bid_datetime", _dbHelper.SafeGetDatetimeString(reader, 4) },
+									{ "project_admin_user_displayname", _dbHelper.SafeGetString(reader, 5) },
+									{ "project_admin_user_email", _dbHelper.SafeGetString(reader, 6) },
+									{ "project_id", _dbHelper.SafeGetString(reader, 7) },
+									{ "project_name", _dbHelper.SafeGetString(reader, 8) },
+									{ "project_office_name", _dbHelper.SafeGetString(reader, 9) },
+									{ "admin_user_id", _dbHelper.SafeGetString(reader, 10) },
+									{ "company_office_id", _dbHelper.SafeGetString(reader, 11) },
 									{ "view_project_url", "" },
-									{ "view_project_documents_url", "" }
-
+									{ "view_project_documents_url", "" },
+                                    { "view_project_submission_url", "" },
 								});
 							}
 						}
@@ -526,7 +531,8 @@ namespace _440DocumentManagement.Controllers
 								for (var index = 0; index < resultList.Count; index++)
 								{
 									resultList[index]["view_project_documents_url"] = $"{brViewerUrl}?project_id={resultList[index]["project_id"]}&user_id={resultList[index]["admin_user_id"]}&doc_type=normal&doc_id=unknown&folder_id=unknown";
-								}
+                                    resultList[index]["view_project_submission_url"] = $"{brViewerUrl}?project_id={resultList[index]["project_id"]}&submission_id={resultList[index]["submission_id"]}&user_id={resultList[index]["admin_user_id"]}&doc_type=normal&doc_id=unknown&folder_id=unknown";
+                                }
 							}
 						}
 					}

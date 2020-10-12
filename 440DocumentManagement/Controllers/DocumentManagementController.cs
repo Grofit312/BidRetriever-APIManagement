@@ -44,7 +44,8 @@ namespace _440DocumentManagement.Controllers
 		[Route("CreateProjectDocument")]
 		public IActionResult Post(ProjectDocument projectDocument)
 		{
-			var folderContentId = Guid.NewGuid().ToString();
+			// var folderContentId = Guid.NewGuid().ToString();
+            // var secondFolderContentId = Guid.NewGuid().ToString();
 			var docId = projectDocument.doc_id ?? Guid.NewGuid().ToString();
 
 			try
@@ -101,6 +102,8 @@ namespace _440DocumentManagement.Controllers
 
 				if (!isDuplicatedDocument)
 				{
+                    // Note: Do not create folder content records, these will be handled by 922
+                    /*
 					// create source_current folder structure, except split files
                     // Note: commented this line to resolve folder content issue for original plan files
 					//if (projectDocument.process_status == "completed" && string.IsNullOrEmpty(projectDocument.doc_parent_id))
@@ -139,7 +142,7 @@ namespace _440DocumentManagement.Controllers
 							{
 								project_id = projectDocument.project_id,
 								folder_type = "source_history",
-								folder_content_id = folderContentId,
+								folder_content_id = secondFolderContentId,
 								folder_path = folderPath,
 								doc_id = docId,
 								file_id = projectDocument.file_id,
@@ -154,6 +157,7 @@ namespace _440DocumentManagement.Controllers
 							}
 						}
 					}
+                    */
 
 					// copy files if file_id is duplicate. otherwise, add file to the document
 					if ((projectDocument.doc_type == "original_single_sheet_plan" || projectDocument.doc_type == "split_single_sheet_plan")
@@ -195,7 +199,7 @@ namespace _440DocumentManagement.Controllers
 					if (addDocumentFileResult is BadRequestObjectResult)
 					{
 						__deleteProjectDocument(docId);
-						__deleteFolderContent(folderContentId);
+						// __deleteFolderContent(folderContentId);
 						return addDocumentFileResult;
 					}
                 }
@@ -208,7 +212,7 @@ namespace _440DocumentManagement.Controllers
             }
 			catch (Exception exception)
 			{
-				__deleteFolderContent(folderContentId);
+				// __deleteFolderContent(folderContentId);
 				__deleteProjectDocument(docId);
 				return BadRequest(new
 				{
@@ -292,6 +296,13 @@ namespace _440DocumentManagement.Controllers
 							status = "no matching project document found"
 						});
 					}
+
+                    // We need to remove existing doc_name if sheet is indexed but no name is entered
+                    if (!string.IsNullOrEmpty(request.doc_number) && string.IsNullOrEmpty(request.doc_name))
+                    {
+                        cmd.CommandText = $"UPDATE project_documents SET doc_name=NULL WHERE doc_id='{request.search_project_document_id}'";
+                        cmd.ExecuteNonQuery();
+                    }
 				}
 
 				return Ok(new
@@ -874,7 +885,7 @@ namespace _440DocumentManagement.Controllers
 					}
 
 					// now, create record
-					__createFolder(
+					folderId = __createFolder(
 						projectFolder.project_id,
 						folderId,
 						projectFolder.folder_name,
@@ -1047,7 +1058,7 @@ namespace _440DocumentManagement.Controllers
 							{
 								folderId = Guid.NewGuid().ToString();
 
-								__createFolder(
+								folderId = __createFolder(
 									folderContent.project_id,
 									folderId,
 									__getRootFolderName(folderContent.folder_type),
@@ -1088,7 +1099,7 @@ namespace _440DocumentManagement.Controllers
 
 										if (!string.IsNullOrEmpty(folderContent.submission_id) && folderNames[index] == submissionName)
 										{
-											__createFolder(
+                                            id = __createFolder(
 												folderContent.project_id,
 												id,
 												folderNames[index],
@@ -1100,7 +1111,7 @@ namespace _440DocumentManagement.Controllers
 										}
 										else
 										{
-											__createFolder(
+                                            id = __createFolder(
 												folderContent.project_id,
 												id,
 												folderNames[index],
@@ -1586,7 +1597,7 @@ namespace _440DocumentManagement.Controllers
 													+ "files.parent_original_modified_datetime, files.file_type "
 													+ "FROM project_documents LEFT OUTER JOIN document_files ON document_files.doc_id=project_documents.doc_id "
 													+ "LEFT OUTER JOIN files ON files.file_id=document_files.file_id "
-													+ "WHERE (files.file_type='source_system_original' OR files.file_type='enhanced_original') AND project_documents.project_id='" + project_id + "' AND project_documents.doc_number='" + sheet_number + "'";
+													+ "WHERE (files.file_type='source_system_original' OR files.file_type='enhanced_original') AND project_documents.project_id='" + project_id + "' AND project_documents.doc_number='" + sheet_number + "' ORDER BY project_documents.create_datetime";
 
 					using (var reader = cmd.ExecuteReader())
 					{
@@ -1988,7 +1999,10 @@ namespace _440DocumentManagement.Controllers
 
 				using (var cmd = _dbHelper.SpawnCommand())
 				{
-					cmd.CommandText = $"DELETE FROM project_documents WHERE doc_id='{request.doc_id}'";
+                    cmd.CommandText = $"DELETE FROM project_folder_contents WHERE doc_id='{request.doc_id}'";
+                    cmd.ExecuteNonQuery();
+
+                    cmd.CommandText = $"DELETE FROM project_documents WHERE doc_id='{request.doc_id}'";
 					cmd.ExecuteNonQuery();
 
 					cmd.CommandText = $"DELETE FROM document_files WHERE doc_id='{request.doc_id}'";
@@ -2703,7 +2717,7 @@ namespace _440DocumentManagement.Controllers
 			}
 		}
 
-		private void __createFolder(
+		private string __createFolder(
 			string projectId,
 			string folderId,
 			string folderName,
@@ -2730,12 +2744,13 @@ namespace _440DocumentManagement.Controllers
 					}
 				}
 
-				// Create folder
-				newCmd.CommandText = "BEGIN WORK; LOCK TABLE project_folders; INSERT INTO project_folders (project_id, folder_id, "
-														+ "folder_name, parent_folder_id, folder_type, status, create_datetime, "
-														+ "edit_datetime, folder_content_quantity, submission_id) "
-														+ "VALUES(@project_id, @folder_id, @folder_name, @parent_folder_id, @folder_type, "
-														+ "@status, @create_datetime, @edit_datetime, @folder_content_quantity, @submission_id) ON CONFLICT DO NOTHING; COMMIT WORK;";
+                // Create folder
+                newCmd.CommandText = "BEGIN WORK; LOCK TABLE project_folders; INSERT INTO project_folders (project_id, folder_id, "
+								+ "folder_name, parent_folder_id, folder_type, status, create_datetime, "
+								+ "edit_datetime, folder_content_quantity, submission_id) "
+								+ "VALUES(@project_id, @folder_id, @folder_name, @parent_folder_id, @folder_type, "
+								+ "@status, @create_datetime, @edit_datetime, @folder_content_quantity, @submission_id) "
+                                + "ON CONFLICT(project_id, parent_folder_id, folder_name) DO NOTHING; COMMIT WORK;";
 
 				newCmd.Parameters.AddWithValue("project_id", projectId);
 				newCmd.Parameters.AddWithValue("folder_id", folderId);
@@ -2750,6 +2765,16 @@ namespace _440DocumentManagement.Controllers
 
 				newCmd.ExecuteNonQuery();
 
+                newCmd.CommandText = $"BEGIN WORK; LOCK TABLE project_folders; SELECT folder_id FROM project_folders WHERE project_id='{projectId}' AND parent_folder_id='{parentFolderId ?? ""}' AND folder_name='{folderName}'; COMMIT WORK;";
+
+                using (var reader = newCmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        folderId = _dbHelper.SafeGetString(reader, 0);
+                    }
+                }
+
 				// Increase content quantity of parent folder 
 				if (!string.IsNullOrEmpty(parentFolderId))
 				{
@@ -2757,6 +2782,8 @@ namespace _440DocumentManagement.Controllers
 														 + $"WHERE folder_id='{parentFolderId}'; COMMIT WORK;";
 					newCmd.ExecuteNonQuery();
 				}
+
+                return folderId;
 			}
 		}
 

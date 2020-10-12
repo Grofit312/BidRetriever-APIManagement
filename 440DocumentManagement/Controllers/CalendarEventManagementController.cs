@@ -453,9 +453,9 @@ namespace _440DocumentManagement.Controllers
 					// create attendee
 					cmd.CommandText = "INSERT INTO event_attendee "
 							+ "(event_attendee_id, calendar_event_id, event_attendee_user_id, create_datetime, edit_datetime, "
-							+ "event_attendee_status, event_attendee_comment, event_attendee_optional, status) "
+							+ "event_attendee_status, event_attendee_comment, event_attendee_optional, status, event_attendee_type) "
 							+ "VALUES(@event_attendee_id, @calendar_event_id, @event_attendee_user_id, @create_datetime, @edit_datetime, "
-							+ "@event_attendee_status, @event_attendee_comment, @event_attendee_optional, @status)";
+							+ "@event_attendee_status, @event_attendee_comment, @event_attendee_optional, @status, @event_attendee_type)";
 
 					cmd.Parameters.AddWithValue("event_attendee_id", eventAttendeeId);
 					cmd.Parameters.AddWithValue("calendar_event_id", request.calendar_event_id);
@@ -465,7 +465,8 @@ namespace _440DocumentManagement.Controllers
 					cmd.Parameters.AddWithValue("event_attendee_status", request.event_attendee_status ?? "");
 					cmd.Parameters.AddWithValue("event_attendee_comment", request.event_attendee_comment ?? "");
 					cmd.Parameters.AddWithValue("event_attendee_optional", request.event_attendee_optional ?? "");
-					cmd.Parameters.AddWithValue("status", request.status ?? "active");
+                    cmd.Parameters.AddWithValue("event_attendee_type", request.event_attendee_type ?? "");
+                    cmd.Parameters.AddWithValue("status", request.status ?? "active");
 
 					cmd.ExecuteNonQuery();
 
@@ -511,6 +512,7 @@ namespace _440DocumentManagement.Controllers
 							+ "event_attendee_status = COALESCE(@event_attendee_status, event_attendee_status), "
 							+ "calendar_event_id = COALESCE(@calendar_event_id, calendar_event_id), "
 							+ "event_attendee_user_id = COALESCE(@event_attendee_user_id, event_attendee_user_id), "
+                            + "event_attendee_type = COALESCE(@event_attendee_type, event_attendee_type), "
 							+ "status = COALESCE(@status, status), "
 							+ "edit_datetime = @edit_datetime "
 							+ "WHERE event_attendee_id='" + request.search_event_attendee_id + "'";
@@ -520,7 +522,8 @@ namespace _440DocumentManagement.Controllers
 					cmd.Parameters.AddWithValue("event_attendee_status", (object)request.event_attendee_status ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("calendar_event_id", (object)request.calendar_event_id ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("event_attendee_user_id", (object)request.event_attendee_user_id ?? DBNull.Value);
-					cmd.Parameters.AddWithValue("status", (object)request.status ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("event_attendee_type", (object)request.event_attendee_type ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("status", (object)request.status ?? DBNull.Value);
 					cmd.Parameters.AddWithValue("edit_datetime", DateTime.UtcNow);
 
 					var affectedRows = cmd.ExecuteNonQuery();
@@ -569,7 +572,7 @@ namespace _440DocumentManagement.Controllers
 				using (var cmd = _dbHelper.SpawnCommand())
 				{
 					cmd.CommandText = "SELECT event_attendee_comment, event_attendee_id, event_attendee_optional, "
-							+ "event_attendee_status, calendar_event_id, event_attendee_user_id, status "
+							+ "event_attendee_status, calendar_event_id, event_attendee_user_id, status, event_attendee_type "
 							+ "FROM event_attendee WHERE event_attendee_id='" + request.event_attendee_id + "'";
 
 					using (var reader = cmd.ExecuteReader())
@@ -577,15 +580,16 @@ namespace _440DocumentManagement.Controllers
 						if (reader.Read())
 						{
 							return Ok(new Dictionary<string, string>
-              {
-                { "event_attendee_comment", _dbHelper.SafeGetString(reader, 0) },
-                { "event_attendee_id", _dbHelper.SafeGetString(reader, 1) },
-                { "event_attendee_optional", _dbHelper.SafeGetString(reader, 2) },
-                { "event_attendee_status", _dbHelper.SafeGetString(reader, 3) },
-                { "calendar_event_id", _dbHelper.SafeGetString(reader, 4) },
-                { "event_attendee_user_id", _dbHelper.SafeGetString(reader, 5) },
-                { "status", _dbHelper.SafeGetString(reader, 6) },
-              });
+                            {
+                                { "event_attendee_comment", _dbHelper.SafeGetString(reader, 0) },
+                                { "event_attendee_id", _dbHelper.SafeGetString(reader, 1) },
+                                { "event_attendee_optional", _dbHelper.SafeGetString(reader, 2) },
+                                { "event_attendee_status", _dbHelper.SafeGetString(reader, 3) },
+                                { "calendar_event_id", _dbHelper.SafeGetString(reader, 4) },
+                                { "event_attendee_user_id", _dbHelper.SafeGetString(reader, 5) },
+                                { "status", _dbHelper.SafeGetString(reader, 6) },
+                                { "event_attendee_type", _dbHelper.SafeGetString(reader, 7) },
+                            });
 						}
 						else
 						{
@@ -641,7 +645,7 @@ namespace _440DocumentManagement.Controllers
 							+ "event_attendee.event_attendee_status, event_attendee.calendar_event_id, event_attendee.event_attendee_user_id, event_attendee.status, "
 							+ "users.user_email, users.user_firstname, users.user_lastname, users.customer_id, "
 							+ "customers.customer_name, customers.customer_address1, customers.customer_address2, customers.customer_city, "
-							+ "customers.customer_state, customers.customer_zip, customers.customer_country "
+							+ "customers.customer_state, customers.customer_zip, customers.customer_country, event_attendee.event_attendee_type "
 							+ "FROM event_attendee "
 							+ "LEFT OUTER JOIN users ON users.user_id=event_attendee.event_attendee_user_id "
 							+ "LEFT OUTER JOIN customers ON users.customer_id=customers.customer_id "
@@ -676,6 +680,7 @@ namespace _440DocumentManagement.Controllers
 								{ "customer_id", _dbHelper.SafeGetString(reader, 10) },
 								{ "company_name", _dbHelper.SafeGetString(reader, 11) },
 								{ "company_address", companyAddress.Trim() },
+                                { "event_attendee_type", _dbHelper.SafeGetString(reader, 18) },
 							});
 						}
 						return Ok(result);

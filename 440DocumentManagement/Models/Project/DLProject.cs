@@ -57,13 +57,12 @@ namespace _440DocumentManagement.Models
 		public string project_stage { get; set; }
 		public int project_value { get; set; }
 		public string source_company_id { get; set; }
-    public string source_company_contact_id { get; set; }
-    public string source_user_id { get; set; }
+        public string source_company_contact_id { get; set; }
+        public string source_user_id { get; set; }
 		public string project_assigned_office_id { get; set; }
 		public string project_assigned_office_name { get; set; }
-
 		public string project_displayname { get; set; }
-
 		public string source_project_id { get; set; }
+        public int num_proj_sources { get; set; }
 	}
 }
