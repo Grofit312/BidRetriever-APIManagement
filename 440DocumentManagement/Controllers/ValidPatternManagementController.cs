@@ -146,11 +146,12 @@ namespace _440DocumentManagement.Controllers
 			{
 				using (var cmd = _dbHelper.SpawnCommand())
 				{
-					cmd.CommandText = "SELECT pattern_class, example, occurrences, pattern, stripped_pattern, pattern_length FROM valid_patterns";
+					cmd.CommandText = "SELECT pattern_class, example, occurrences, pattern, stripped_pattern, pattern_length FROM valid_patterns "
+                        + $"WHERE occurrences>={request.min_occurrences}";
 
 					if (!string.IsNullOrEmpty(request.pattern_class))
 					{
-						cmd.CommandText += $" WHERE pattern_class='{request.pattern_class}'";
+						cmd.CommandText += $" AND pattern_class='{request.pattern_class}'";
 					}
 					cmd.CommandText += " ORDER BY occurrences DESC";
 
@@ -493,22 +494,22 @@ namespace _440DocumentManagement.Controllers
 				{
 					var timestamp = DateTime.UtcNow;
 
-					cmd.CommandText = $"SELECT EXISTS (SELECT true FROM sheet_name_word_library WHERE LOWER(sheet_name_word)='{request.sheet_name_word.ToLower()}')";
+					cmd.CommandText = $"SELECT EXISTS (SELECT true FROM sheet_name_word_library WHERE LOWER(sheet_name_word)='{request.SheetNameWord.ToLower()}')";
 
 					if ((bool)cmd.ExecuteScalar() == true)
 					{
 						// already exists
-						if (request.manual && request.ocr)
+						if (request.Manual && request.Ocr)
 						{
-							cmd.CommandText = "UPDATE sheet_name_word_library SET sheet_name_manual_occurrences = sheet_name_manual_occurrences + 1, sheet_name_ocr_occurrences = sheet_name_ocr_occurrences + 1 WHERE LOWER(sheet_name_word)='" + request.sheet_name_word.ToLower() + "'";
+							cmd.CommandText = "UPDATE sheet_name_word_library SET sheet_name_manual_occurrences = sheet_name_manual_occurrences + 1, sheet_name_ocr_occurrences = sheet_name_ocr_occurrences + 1 WHERE LOWER(sheet_name_word)='" + request.SheetNameWord.ToLower() + "'";
 						}
-						else if (request.manual)
+						else if (request.Manual)
 						{
-							cmd.CommandText = "UPDATE sheet_name_word_library SET sheet_name_manual_occurrences = sheet_name_manual_occurrences + 1 WHERE LOWER(sheet_name_word)='" + request.sheet_name_word.ToLower() + "'";
+							cmd.CommandText = "UPDATE sheet_name_word_library SET sheet_name_manual_occurrences = sheet_name_manual_occurrences + 1 WHERE LOWER(sheet_name_word)='" + request.SheetNameWord.ToLower() + "'";
 						}
-						else if (request.ocr)
+						else if (request.Ocr)
 						{
-							cmd.CommandText = "UPDATE sheet_name_word_library SET sheet_name_ocr_occurrences = sheet_name_ocr_occurrences + 1 WHERE LOWER(sheet_name_word)='" + request.sheet_name_word.ToLower() + "'";
+							cmd.CommandText = "UPDATE sheet_name_word_library SET sheet_name_ocr_occurrences = sheet_name_ocr_occurrences + 1 WHERE LOWER(sheet_name_word)='" + request.SheetNameWord.ToLower() + "'";
 						}
 
 						cmd.ExecuteNonQuery();
@@ -524,10 +525,10 @@ namespace _440DocumentManagement.Controllers
 						cmd.CommandText = "INSERT INTO sheet_name_word_library (sheet_name_word, sheet_name_word_abbrv, sheet_name_manual_occurrences, sheet_name_ocr_occurrences) "
 																						+ "VALUES(@sheet_name_word, @sheet_name_word_abbrv, @sheet_name_manual_occurrences, @sheet_name_ocr_occurrences)";
 
-						cmd.Parameters.AddWithValue("sheet_name_word", request.sheet_name_word.ToUpper());
-						cmd.Parameters.AddWithValue("sheet_name_word_abbrv", request.sheet_name_word_abbrv.ToUpper());
-						cmd.Parameters.AddWithValue("sheet_name_manual_occurrences", request.manual ? 1 : 0);
-						cmd.Parameters.AddWithValue("sheet_name_ocr_occurrences", request.ocr ? 1 : 0);
+						cmd.Parameters.AddWithValue("sheet_name_word", request.SheetNameWord.ToUpper());
+						cmd.Parameters.AddWithValue("sheet_name_word_abbrv", request.SheetNameWordAbbrv.ToUpper());
+						cmd.Parameters.AddWithValue("sheet_name_manual_occurrences", request.Manual ? 1 : 0);
+						cmd.Parameters.AddWithValue("sheet_name_ocr_occurrences", request.Ocr ? 1 : 0);
 
 						cmd.ExecuteNonQuery();
 
@@ -552,8 +553,8 @@ namespace _440DocumentManagement.Controllers
 		}
 
 		[HttpGet]
-		[Route("GetSheetNameWord")]
-		public IActionResult Get(SheetNameWordGetRequest request)
+		[Route("GetValidSheetNameWord")]
+		public IActionResult Get(ValidSheetNameWordGetRequest request)
 		{
 			try
 			{
@@ -606,5 +607,56 @@ namespace _440DocumentManagement.Controllers
 				_dbHelper.CloseConnection();
 			}
 		}
+
+        [HttpGet]
+        [Route("FindValidSheetNameWords")]
+        public IActionResult Get(ValidSheetNameWordFindRequest request)
+        {
+            try
+            {
+                using (var cmd = _dbHelper.SpawnCommand())
+                {
+                    var where = "";
+
+                    if (!string.IsNullOrEmpty(request.BeginWith))
+                    {
+                        where = $"WHERE LOWER(sheet_name_word) LIKE '{request.BeginWith.ToLower()}%'";
+                    }
+
+                    cmd.CommandText = "SELECT sheet_name_word, sheet_name_word_abbrv, sheet_name_manual_occurrences, "
+                        + "sheet_name_ocr_occurrences, invalid_word_flag FROM sheet_name_word_library " + where;
+
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        var result = new List<Dictionary<string, object>> { };
+
+                        while (reader.Read())
+                        {
+                            result.Add(new Dictionary<string, object>
+                            {
+                                { "sheet_name_word", _dbHelper.SafeGetString(reader, 0) },
+                                { "sheet_name_word_abbrv", _dbHelper.SafeGetString(reader, 1) },
+                                { "sheet_name_manual_occurrences", _dbHelper.SafeGetIntegerRaw(reader, 2) },
+                                { "sheet_name_ocr_occurrences", _dbHelper.SafeGetIntegerRaw(reader, 3) },
+                                { "invalid_word_flag", _dbHelper.SafeGetBooleanRaw(reader, 4) },
+                            });
+                        }
+
+                        return Ok(result);
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                return BadRequest(new
+                {
+                    status = exception.Message
+                });
+            }
+            finally
+            {
+                _dbHelper.CloseConnection();
+            }
+        }
 	}
 }

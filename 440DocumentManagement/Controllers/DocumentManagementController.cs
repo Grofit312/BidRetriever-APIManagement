@@ -1176,8 +1176,8 @@ namespace _440DocumentManagement.Controllers
 							cmd.ExecuteNonQuery();
 
 							// update folder's content quantity
-							cmd.CommandText = "BEGIN WORK; LOCK TABLE project_folders; UPDATE project_folders SET folder_content_quantity = folder_content_quantity + 1 "
-															+ "WHERE folder_id='" + folderId + "'; COMMIT WORK";
+							cmd.CommandText = "UPDATE project_folders SET folder_content_quantity = folder_content_quantity + 1 "
+															+ "WHERE folder_id='" + folderId + "';";
 							cmd.ExecuteNonQuery();
 						}
 					}
@@ -1257,8 +1257,8 @@ namespace _440DocumentManagement.Controllers
 
 					where = where.Remove(where.Length - 5);
 
-					cmd.CommandText = "BEGIN WORK; LOCK TABLE project_folders; SELECT folder_id, folder_name, folder_type, folder_content_quantity "
-													+ "FROM project_folders" + where + " ORDER BY create_datetime; COMMIT WORK;";
+					cmd.CommandText = "SELECT folder_id, folder_name, folder_type, folder_content_quantity "
+													+ "FROM project_folders" + where + " ORDER BY create_datetime;";
 
 					using (var reader = cmd.ExecuteReader())
 					{
@@ -2685,7 +2685,7 @@ namespace _440DocumentManagement.Controllers
 		{
 			using (var cmd = _dbHelper.SpawnCommand())
 			{
-				cmd.CommandText = "BEGIN WORK; LOCK TABLE project_folders; SELECT EXISTS (SELECT true FROM project_folders WHERE folder_id='" + folderId + "'); COMMIT WORK;";
+				cmd.CommandText = "SELECT EXISTS (SELECT true FROM project_folders WHERE folder_id='" + folderId + "');";
 				return (bool)cmd.ExecuteScalar();
 			}
 		}
@@ -2694,7 +2694,7 @@ namespace _440DocumentManagement.Controllers
 		{
 			using (var cmd = _dbHelper.SpawnCommand())
 			{
-				cmd.CommandText = "BEGIN WORK; LOCK TABLE project_folders; SELECT folder_id FROM project_folders WHERE project_id=@project_id AND folder_name=@folder_name AND parent_folder_id=@parent_folder_id; COMMIT WORK;";
+				cmd.CommandText = "SELECT folder_id FROM project_folders WHERE project_id=@project_id AND folder_name=@folder_name AND parent_folder_id=@parent_folder_id;";
 				cmd.Parameters.AddWithValue("project_id", projectId);
 				cmd.Parameters.AddWithValue("folder_name", folderName);
 				cmd.Parameters.AddWithValue("parent_folder_id", parentFolderId ?? "");
@@ -2734,7 +2734,7 @@ namespace _440DocumentManagement.Controllers
 				// Retrieve parent's folder type
 				if (!string.IsNullOrEmpty(parentFolderId))
 				{
-					newCmd.CommandText = "BEGIN WORK; LOCK TABLE project_folders; SELECT folder_type FROM project_folders WHERE folder_id='" + parentFolderId + "'; COMMIT WORK;";
+					newCmd.CommandText = "SELECT folder_type FROM project_folders WHERE folder_id='" + parentFolderId + "';";
 					using (var reader = newCmd.ExecuteReader())
 					{
 						if (reader.Read())
@@ -2745,12 +2745,12 @@ namespace _440DocumentManagement.Controllers
 				}
 
                 // Create folder
-                newCmd.CommandText = "BEGIN WORK; LOCK TABLE project_folders; INSERT INTO project_folders (project_id, folder_id, "
+                newCmd.CommandText = "INSERT INTO project_folders (project_id, folder_id, "
 								+ "folder_name, parent_folder_id, folder_type, status, create_datetime, "
 								+ "edit_datetime, folder_content_quantity, submission_id) "
 								+ "VALUES(@project_id, @folder_id, @folder_name, @parent_folder_id, @folder_type, "
 								+ "@status, @create_datetime, @edit_datetime, @folder_content_quantity, @submission_id) "
-                                + "ON CONFLICT(project_id, parent_folder_id, folder_name) DO NOTHING; COMMIT WORK;";
+                                + "ON CONFLICT(project_id, parent_folder_id, folder_name) DO NOTHING;";
 
 				newCmd.Parameters.AddWithValue("project_id", projectId);
 				newCmd.Parameters.AddWithValue("folder_id", folderId);
@@ -2765,7 +2765,7 @@ namespace _440DocumentManagement.Controllers
 
 				newCmd.ExecuteNonQuery();
 
-                newCmd.CommandText = $"BEGIN WORK; LOCK TABLE project_folders; SELECT folder_id FROM project_folders WHERE project_id='{projectId}' AND parent_folder_id='{parentFolderId ?? ""}' AND folder_name='{folderName}'; COMMIT WORK;";
+                newCmd.CommandText = $"SELECT folder_id FROM project_folders WHERE project_id='{projectId}' AND parent_folder_id='{parentFolderId ?? ""}' AND folder_name='{folderName}';";
 
                 using (var reader = newCmd.ExecuteReader())
                 {
@@ -2778,8 +2778,8 @@ namespace _440DocumentManagement.Controllers
 				// Increase content quantity of parent folder 
 				if (!string.IsNullOrEmpty(parentFolderId))
 				{
-					newCmd.CommandText = "BEGIN WORK; LOCK TABLE project_folders; UPDATE project_folders SET folder_content_quantity = folder_content_quantity + 1 "
-														 + $"WHERE folder_id='{parentFolderId}'; COMMIT WORK;";
+					newCmd.CommandText = "UPDATE project_folders SET folder_content_quantity = folder_content_quantity + 1 "
+														 + $"WHERE folder_id='{parentFolderId}';";
 					newCmd.ExecuteNonQuery();
 				}
 
@@ -2922,8 +2922,8 @@ namespace _440DocumentManagement.Controllers
 				}
 				cmd.ExecuteNonQuery();
 
-				cmd.CommandText = "BEGIN WORK; LOCK TABLE project_folders; UPDATE project_folders SET folder_content_quantity = folder_content_quantity - 1 "
-												+ $"WHERE folder_id='{folderId}'; COMMIT WORK;";
+				cmd.CommandText = "UPDATE project_folders SET folder_content_quantity = folder_content_quantity - 1 "
+												+ $"WHERE folder_id='{folderId}';";
 				cmd.ExecuteNonQuery();
 			}
 		}
@@ -2950,10 +2950,10 @@ namespace _440DocumentManagement.Controllers
 		{
 			using (var cmd = _dbHelper.SpawnCommand())
 			{
-				cmd.CommandText = "BEGIN WORK; LOCK TABLE project_folders; SELECT folder_id FROM project_folders "
+				cmd.CommandText = "SELECT folder_id FROM project_folders "
 												+ $"WHERE project_id='{project_id}' "
 												+ $"AND folder_type='{folder_type}' "
-												+ "AND COALESCE(parent_folder_id, '') = ''; COMMIT WORK;";
+												+ "AND COALESCE(parent_folder_id, '') = '';";
 
 				using (var reader = cmd.ExecuteReader())
 				{
