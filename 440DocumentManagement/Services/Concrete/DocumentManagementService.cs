@@ -365,8 +365,8 @@ namespace _440DocumentManagement.Services.Concrete
 				cmd.ExecuteNonQuery();
 
 				cmd.Parameters.Clear();
-				cmd.CommandText = "BEGIN WORK; LOCK TABLE project_folders; UPDATE project_folders SET folder_content_quantity = folder_content_quantity - 1 "
-												+ $"WHERE folder_id='{folderId}'; COMMIT WORK;";
+				cmd.CommandText = "UPDATE project_folders SET folder_content_quantity = folder_content_quantity - 1 "
+												+ $"WHERE folder_id='{folderId}';";
 				cmd.ExecuteNonQuery();
 			}
 

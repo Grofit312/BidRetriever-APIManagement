@@ -47,7 +47,7 @@ namespace _440DocumentManagement.Helpers
         }
 
         private readonly string connString = String.Format("Server={0};Port={1};Username={2};Password={3};Database={4};" +
-                        "Pooling=true;MinPoolSize=0;MaxPoolSize=50;Timeout=60;ConnectionIdleLifetime=5;ConnectionPruningInterval=1;",
+                        "Pooling=true;MinPoolSize=0;MaxPoolSize=1000;Timeout=60;ConnectionIdleLifetime=5;ConnectionPruningInterval=1;",
                         br_db_host_name,
                         br_db_port,
                         br_db_user_name,

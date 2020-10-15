@@ -1744,6 +1744,7 @@ namespace _440DocumentManagement.Controllers
                 var destinationTypeId = "";
                 var accessToken = "";
                 var destinationPath = "";
+                var sourceFileSubmissionEnabled = false;
 
                 using (var cmd = _dbHelper.SpawnCommand())
                 {
@@ -1767,6 +1768,10 @@ namespace _440DocumentManagement.Controllers
                             else if (settingName == "PROJECT_DESTINATION_TOKEN")
                             {
                                 accessToken = settingValue;
+                            }
+                            else if (settingName == "PROJECT_SOURCE_FILE_SUBMISSION_FOLDER")
+                            {
+                                sourceFileSubmissionEnabled = settingValue == "enabled";
                             }
                         }
 
@@ -1796,8 +1801,40 @@ namespace _440DocumentManagement.Controllers
                     }
                 }
 
+                if (!string.IsNullOrEmpty(request.submission_id)) {
+                    var sourceCurrentFolderName = DocumentManagementController.__getRootFolderName("source_current");
+                    var sourceHistoryFolderName = DocumentManagementController.__getRootFolderName("source_history");
 
-                if (!string.IsNullOrEmpty(request.folder_id))
+                    if (sourceFileSubmissionEnabled)
+                    {
+                        using (var cmd = _dbHelper.SpawnCommand())
+                        {
+                            cmd.CommandText = $"SELECT submission_name FROM project_submissions WHERE project_submission_id='{request.submission_id}'";
+
+                            using (var reader = cmd.ExecuteReader())
+                            {
+                                if (reader.Read())
+                                {
+                                    var submissionName = _dbHelper.SafeGetString(reader, 0);
+
+                                    destinationPath += $"/{sourceHistoryFolderName}/{submissionName}";
+                                }
+                                else
+                                {
+                                    return BadRequest(new
+                                    {
+                                        status = "Cannot locate submission",
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        destinationPath += $"/{sourceCurrentFolderName}";
+                    }
+                }
+                else if (!string.IsNullOrEmpty(request.folder_id))
                 {
                     var folderNames = new List<string> { };
                     var folderId = request.folder_id;
@@ -1835,7 +1872,7 @@ namespace _440DocumentManagement.Controllers
                 {
                     try
                     {
-                        var link = await dbx.Sharing.ListSharedLinksAsync(destinationPath);
+                        var link = await dbx.Sharing.ListSharedLinksAsync(destinationPath, null, true);
                         Dropbox.Api.Sharing.SharedLinkMetadata existingLink = null;
 
                         for (var index = 0; index < link.Links.Count; index++)
