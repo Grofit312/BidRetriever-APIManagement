@@ -174,7 +174,7 @@ namespace _440DocumentManagement.Controllers
 				using (var cmd = _dbHelper.SpawnCommand())
 				{
 					cmd.CommandText = "SELECT customer_id, destination_access_token, destination_id, destination_name, "
-													+ "destination_password, destination_root_path, destination_type_name, destination_username, "
+													+ "destination_password, destination_root_path, destination_type_name, destination_username, destination_url,"
 													+ "destination_type_id, create_datetime, edit_datetime, status, "
 													+ "total_access_count, create_user_id, edit_user_id "
 													+ "FROM customer_destinations WHERE customer_id='" + customerId + "' AND status='active'";
@@ -194,21 +194,23 @@ namespace _440DocumentManagement.Controllers
 								{ "destination_root_path", _dbHelper.SafeGetString(reader, 5) },
 								{ "destination_type_name", _dbHelper.SafeGetString(reader, 6) },
 								{ "destination_username", _dbHelper.SafeGetString(reader, 7) },
-							};
+                                { "destination_url", _dbHelper.SafeGetString(reader, 8) },
+
+                            };
 
 							if (detailLevel == "all" || detailLevel == "admin")
 							{
-								customerDestination["destination_type_id"] = _dbHelper.SafeGetString(reader, 8);
-								customerDestination["create_datetime"] = ((DateTime)reader.GetValue(9)).ToString();
-								customerDestination["edit_datetime"] = ((DateTime)reader.GetValue(10)).ToString();
-								customerDestination["status"] = _dbHelper.SafeGetString(reader, 11);
+								customerDestination["destination_type_id"] = _dbHelper.SafeGetString(reader, 9);
+								customerDestination["create_datetime"] = ((DateTime)reader.GetValue(10)).ToString();
+								customerDestination["edit_datetime"] = ((DateTime)reader.GetValue(11)).ToString();
+								customerDestination["status"] = _dbHelper.SafeGetString(reader, 12);
 							}
 
 							if (detailLevel == "admin")
 							{
-								customerDestination["total_access_count"] = _dbHelper.SafeGetInteger(reader, 12);
-								customerDestination["create_user_id"] = _dbHelper.SafeGetString(reader, 13);
-								customerDestination["edit_user_id"] = _dbHelper.SafeGetString(reader, 14);
+								customerDestination["total_access_count"] = _dbHelper.SafeGetInteger(reader, 13);
+								customerDestination["create_user_id"] = _dbHelper.SafeGetString(reader, 14);
+								customerDestination["edit_user_id"] = _dbHelper.SafeGetString(reader, 15);
 							}
 
 							result.Add(customerDestination);

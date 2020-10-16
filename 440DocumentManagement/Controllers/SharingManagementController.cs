@@ -367,7 +367,8 @@ namespace _440DocumentManagement.Controllers
 " shared_projects.create_user_id, shared_projects.edit_user_id, projects.project_password,  " +
 " shared_projects.share_source_user_displayname, " +
 " share_users.user_firstname, share_users.user_lastname,  customers.customer_name as share_company_name,  " +
-" share_users.user_email as share_user_email " +
+" share_users.user_email as share_user_email,  " +
+" shared_projects.shared_project_id " +
 " FROM shared_projects " +
 " LEFT JOIN projects ON  shared_projects.project_id = projects.project_id " +
 " INNER JOIN  users as share_users ON shared_projects.share_user_id = share_users.user_id " +
@@ -419,7 +420,7 @@ namespace _440DocumentManagement.Controllers
 								{ "share_user_email", _dbHelper.SafeGetString(reader, 33) },
 								{ "share_user_phone", _dbHelper.SafeGetString(reader, 29) },
 								{ "share_user_displayname", shareUserDisplayName },
-								//{ "shared_project_id", _dbHelper.SafeGetString(reader, 32) },
+								{ "shared_project_id", _dbHelper.SafeGetString(reader, 34) },
 								//{ "share_user_id", _dbHelper.SafeGetString(reader, 33) },
 								//{ "share_user_office_name", _dbHelper.SafeGetString(reader, 34) },
 							};
