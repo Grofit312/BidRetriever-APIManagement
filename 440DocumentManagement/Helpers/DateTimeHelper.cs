@@ -1,4 +1,5 @@
 ﻿using System;
+using TimeZoneConverter;
 
 namespace _440DocumentManagement.Helpers
 {
@@ -47,5 +48,41 @@ namespace _440DocumentManagement.Helpers
 				return "";
 			}
 		}
-	}
+
+        /**
+         * Convert timestamp to specific timezone's DateTime
+         */
+        static public DateTime ConvertToUserTimezone(string formattedDateString, string userTimezone)
+        {
+            var utcDatetime = DateTime.Parse(formattedDateString).ToUniversalTime();
+            var timezoneInfo = TimeZoneInfo.Utc;
+
+            switch (userTimezone)
+            {
+                case "eastern":
+                    timezoneInfo = TZConvert.GetTimeZoneInfo("Eastern Standard Time");
+                    break;
+                case "central":
+                    timezoneInfo = TZConvert.GetTimeZoneInfo("Central Standard Time");
+                    break;
+                case "mountain":
+                    timezoneInfo = TZConvert.GetTimeZoneInfo("Mountain Standard Time");
+                    break;
+                case "pacific":
+                    timezoneInfo = TZConvert.GetTimeZoneInfo("Pacific Standard Time");
+                    break;
+                case "Non US Timezone":
+                    timezoneInfo = TimeZoneInfo.Utc;
+                    break;
+                case "utc":
+                    timezoneInfo = TimeZoneInfo.Utc;
+                    break;
+                default:
+                    timezoneInfo = TimeZoneInfo.Utc;
+                    break;
+            }
+
+            return TimeZoneInfo.ConvertTimeFromUtc(utcDatetime, timezoneInfo);
+        }
+    }
 }

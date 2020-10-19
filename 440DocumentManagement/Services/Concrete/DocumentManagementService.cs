@@ -51,6 +51,22 @@ namespace _440DocumentManagement.Services.Concrete
 			List<Dictionary<string, object>> documents)
 		{
 			var isCounterBasedRevision = false;
+            var timezone = "eastern";
+
+            using (var cmd = dbHelper.SpawnCommand())
+            {
+                cmd.CommandText = "SELECT customer_timezone FROM customers "
+                    + $"WHERE customer_id = '{customerId}'";
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        timezone = dbHelper.SafeGetString(reader, 0);
+                    }
+                }
+            }
+
 			using (var cmd = dbHelper.SpawnCommand())
 			{
 				cmd.CommandText = "SELECT setting_value FROM customer_settings "
@@ -70,7 +86,7 @@ namespace _440DocumentManagement.Services.Concrete
 			{
 				if (documents.Count == 0)
 				{
-					updatedDocRevision = "00";
+					updatedDocRevision = "";
 				}
 				else
 				{
@@ -79,17 +95,31 @@ namespace _440DocumentManagement.Services.Concrete
 			}
 			else
 			{
-				var numberOfPreviousDocsInSameDay = documents.Where(prevDoc =>
-					((string)prevDoc["submission_datetime"]).Substring(0, 10) == ((string)currentDoc["submission_datetime"]).Substring(0, 10)).ToList().Count;
-				if (numberOfPreviousDocsInSameDay == 0)
-				{
-					updatedDocRevision = ((string)currentDoc["submission_datetime"]).Substring(0, 10);
-				}
-				else
-				{
-					updatedDocRevision = DateTimeHelper.ConvertToUTCDateTime((string)currentDoc["submission_datetime"]).ToString("yyyy-MM-dd_HH-mm");
-					updatedDocRevision += "-" + numberOfPreviousDocsInSameDay.ToString().PadLeft(2, '0');
-				}
+                var submissionDatetime = DateTimeHelper.ConvertToUserTimezone((string)currentDoc["submission_datetime"], timezone);
+                var timestampWithoutHM = submissionDatetime.ToString("yyyy-MM-dd");
+                var timestampWithHM = submissionDatetime.ToString("yyyy-MM-dd_HH-mm");
+
+                if (documents.Count == 0)
+                {
+                    updatedDocRevision = timestampWithoutHM;
+                }
+                else
+                {
+                    var numberOfPreviousDocsInSameDay = documents.Where(prevDoc =>
+                    {
+                        var prevDocSubmissionDatetime = DateTimeHelper.ConvertToUserTimezone((string)prevDoc["submission_datetime"], timezone);
+                        return prevDocSubmissionDatetime.ToString("yyyy-MM-dd") == timestampWithoutHM;
+                    }).ToList().Count;
+                    if (numberOfPreviousDocsInSameDay == 0)
+                    {
+                        updatedDocRevision = timestampWithoutHM;
+                    }
+                    else
+                    {
+                        updatedDocRevision = timestampWithoutHM;
+                        updatedDocRevision += " - " + numberOfPreviousDocsInSameDay.ToString().PadLeft(2, '0');
+                    }
+                }
 			}
 
 			return updatedDocRevision;

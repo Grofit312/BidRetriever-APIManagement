@@ -21,5 +21,8 @@
 		public string process_status { get; set; }
 		public string display_name { get; set; }
 		public string doc_size { get; set; }
+        public string doc_subproject { get; set; }
+        public string doc_pagenumber { get; set; }
+        public int doc_sequence { get; set; }
 	}
 }
