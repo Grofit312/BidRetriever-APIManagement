@@ -930,16 +930,16 @@ namespace _440DocumentManagement.Controllers
                             while (reader.Read())
                             {
                                 resultList.Add(new Dictionary<string, object>
-                {
-                  { "project_admin_user_fullname", $"{_dbHelper.SafeGetString(reader, 0)} {_dbHelper.SafeGetString(reader, 1)}" },
-                  { "project_bid_datetime", _dbHelper.SafeGetDatetimeString(reader, 2) },
-                  { "project_displayname", _dbHelper.SafeGetString(reader, 3) },
-                  { "project_id", _dbHelper.SafeGetString(reader, 4) },
-                  { "project_name", _dbHelper.SafeGetString(reader, 5) },
-                  { "project_number", _dbHelper.SafeGetString(reader, 6) },
-                  { "create_datetime", _dbHelper.SafeGetDatetimeString(reader, 7) },
-                  { "project_timezone", _dbHelper.SafeGetString(reader, 8) }
-                });
+                                {
+                                    { "project_admin_user_fullname", $"{_dbHelper.SafeGetString(reader, 0)} {_dbHelper.SafeGetString(reader, 1)}" },
+                                    { "project_bid_datetime", _dbHelper.SafeGetDatetimeString(reader, 2) },
+                                    { "project_displayname", _dbHelper.SafeGetString(reader, 3) },
+                                    { "project_id", _dbHelper.SafeGetString(reader, 4) },
+                                    { "project_name", _dbHelper.SafeGetString(reader, 5) },
+                                    { "project_number", _dbHelper.SafeGetString(reader, 6) },
+                                    { "create_datetime", _dbHelper.SafeGetDatetimeString(reader, 7) },
+                                    { "project_timezone", _dbHelper.SafeGetString(reader, 8) }
+                                });
                             }
 
                             reader.Close();
@@ -961,7 +961,8 @@ namespace _440DocumentManagement.Controllers
                         + "projects.project_contract_type, projects.project_stage, projects.project_segment, projects.project_building_type, projects.project_labor_requirement, "
                         + "projects.project_value, projects.project_size, projects.project_construction_type, projects.project_award_status, "
                         + "projects.project_assigned_office_id, projects.project_assigned_office_name, "
-                        + "projects.project_displayname, ps.project_submission_id as original_submission_id, projects.source_project_id, projects.num_proj_sources "
+                        + "projects.project_displayname, ps.project_submission_id as original_submission_id, projects.source_project_id, projects.num_proj_sources, "
+                        + "cast(extract(epoch FROM (projects.project_bid_datetime - now())) as int) as time_till_bid "
                         + "FROM projects "
                         + "LEFT JOIN users ON users.user_id=projects.project_admin_user_id "
                         + "LEFT JOIN customers ON users.customer_id=customers.customer_id "
@@ -1022,6 +1023,7 @@ namespace _440DocumentManagement.Controllers
                             result.Add("project_award_status", _dbHelper.SafeGetString(reader, 47));
                             result.Add("source_project_id", _dbHelper.SafeGetString(reader, 52));
                             result.Add("num_proj_sources", _dbHelper.SafeGetIntegerRaw(reader, 53));
+                            result.Add("time_till_bid", _dbHelper.SafeGetIntegerRaw(reader, 54));
                             result["last_change_date"] = result["edit_datetime"];
 
                             if (detailLevel == "admin" || detailLevel == "all")
@@ -1221,6 +1223,16 @@ namespace _440DocumentManagement.Controllers
                                 eachRow.Add(columnName, ApiExtension.GetString(reader[columnName]));
                             });
 
+                            if (eachRow["project_bid_datetime"] == null || string.IsNullOrEmpty(eachRow["project_bid_datetime"] as string))
+                            {
+                                eachRow["time_till_bid"] = 0;
+                            }
+                            else
+                            {
+                                var bidDateTime = DateTimeHelper.ConvertToUTCDateTime(eachRow["project_bid_datetime"] as string);
+                                eachRow["time_till_bid"] = Convert.ToInt32(bidDateTime.Subtract(DateTime.UtcNow).TotalSeconds);
+                            }
+
                             resultList.Add(eachRow);
                         }
                     }
@@ -1232,12 +1244,12 @@ namespace _440DocumentManagement.Controllers
                         {
                             var sourceInfo = __getProjectSourceInfo(result["project_id"].ToString());
                             sourceColumnsList.ForEach((sourceColumnField) =>
-                {
-                              result.Add(
-                    sourceColumnField.DataSourceFieldName,
-                    sourceInfo.ContainsKey(sourceColumnField.DataSourceFieldName) ?
-                    sourceInfo[sourceColumnField.DataSourceFieldName] : "");
-                          });
+                            {
+                                result.Add(
+                                    sourceColumnField.DataSourceFieldName,
+                                    sourceInfo.ContainsKey(sourceColumnField.DataSourceFieldName) ?
+                                    sourceInfo[sourceColumnField.DataSourceFieldName] : "");
+                            });
                         });
                     }
                 }
@@ -1290,6 +1302,7 @@ namespace _440DocumentManagement.Controllers
                         }
                     }
 
+                    var isRemovingBidDatetime = !string.IsNullOrEmpty(request.project_bid_datetime) && request.project_bid_datetime == "NULL";
                     var whereString = $" WHERE project_id='{request.search_project_id}'";
                     var queryString = "UPDATE projects SET "
                       + "project_name = COALESCE(@project_name, project_name), "
@@ -1304,7 +1317,7 @@ namespace _440DocumentManagement.Controllers
                       + "project_number = COALESCE(@project_number, project_number), "
                       + "project_owner_name = COALESCE(@project_owner_name, project_owner_name), "
                       + "project_desc = COALESCE(@project_desc, project_desc), "
-                      + "project_bid_datetime = COALESCE(@project_bid_datetime, project_bid_datetime), "
+                      + (isRemovingBidDatetime ? "project_bid_datetime = NULL, " : "project_bid_datetime = COALESCE(@project_bid_datetime, project_bid_datetime), ")
                       + "project_type = COALESCE(@project_type, project_type), "
                       + "status = COALESCE(@status, status), "
                       + "auto_update_status = COALESCE(@auto_update_status, auto_update_status), "
@@ -1361,11 +1374,6 @@ namespace _440DocumentManagement.Controllers
                     cmd.Parameters.AddWithValue("project_number", (object)request.project_number ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("project_owner_name", (object)request.project_owner_name ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("project_desc", (object)request.project_desc ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue(
-                        "project_bid_datetime",
-                        request.project_bid_datetime != null
-                        ? (object)DateTimeHelper.ConvertToUTCDateTime(request.project_bid_datetime)
-                        : DBNull.Value);
                     cmd.Parameters.AddWithValue("project_type", (object)request.project_type ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("status", (object)request.status ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("edit_datetime", DateTime.UtcNow);
@@ -1402,6 +1410,14 @@ namespace _440DocumentManagement.Controllers
                     cmd.Parameters.AddWithValue("source_project_id", (object)request.source_project_id ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("num_proj_sources", (object)request.num_proj_sources ?? DBNull.Value);
 
+                    if (!isRemovingBidDatetime)
+                    {
+                        cmd.Parameters.AddWithValue("project_bid_datetime",
+                        request.project_bid_datetime != null
+                        ? (object)DateTimeHelper.ConvertToUTCDateTime(request.project_bid_datetime)
+                        : DBNull.Value);
+                    }
+
                     if (cmd.ExecuteNonQuery() == 0)
                     {
                         return BadRequest(new
@@ -1410,9 +1426,32 @@ namespace _440DocumentManagement.Controllers
                         });
                     }
 
-                    if (!string.IsNullOrEmpty(request.project_bid_datetime))
+                    if (isRemovingBidDatetime)
                     {
-                        cmd.CommandText = $"SELECT calendar_event_id FROM calendar_events WHERE project_id='{request.search_project_id}' AND calendar_event_type='project_bid_datetime'";
+                        cmd.CommandText = $"SELECT calendar_event_id FROM calendar_events WHERE project_id='{request.search_project_id}' AND calendar_event_type='project_bid_datetime' AND status='active'";
+
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                var calendarEventId = _dbHelper.SafeGetString(reader, 0);
+
+                                var calendarEventUpdateResult = new CalendarEventManagementController().Post(new CalendarEventUpdateRequest
+                                {
+                                    search_calendar_event_id = calendarEventId,
+                                    status = "deleted",
+                                });
+
+                                if (calendarEventUpdateResult is BadRequestObjectResult)
+                                {
+                                    return calendarEventUpdateResult;
+                                }
+                            }
+                        }
+                    }
+                    else if (!string.IsNullOrEmpty(request.project_bid_datetime))
+                    {
+                        cmd.CommandText = $"SELECT calendar_event_id FROM calendar_events WHERE project_id='{request.search_project_id}' AND calendar_event_type='project_bid_datetime' AND status='active'";
 
                         using (var reader = cmd.ExecuteReader())
                         {
@@ -1621,7 +1660,8 @@ namespace _440DocumentManagement.Controllers
                       + "projects.project_contract_type, projects.project_stage, projects.project_segment, projects.project_building_type, projects.project_labor_requirement, "
                       + "projects.project_value, projects.project_size, projects.project_construction_type, projects.project_award_status, source_system_types.source_type_name, users.user_email, "
                       + "projects.project_assigned_office_id, projects.project_assigned_office_name, "
-                      + "projects.project_displayname, projects.num_proj_sources "
+                      + "projects.project_displayname, projects.num_proj_sources, "
+                      + "cast(extract(epoch FROM (projects.project_bid_datetime - now())) as int) as time_till_bid "
                       + "FROM projects "
                       + "LEFT JOIN users ON projects.project_admin_user_id=users.user_id "
                       + "LEFT JOIN source_system_types ON source_system_types.source_sys_type_id=projects.source_sys_type_id "
@@ -1673,6 +1713,7 @@ namespace _440DocumentManagement.Controllers
                             result.Add("project_assigned_office_name", _dbHelper.SafeGetString(reader, 45));
                             result.Add("project_displayname", _dbHelper.SafeGetString(reader, 46));
                             result.Add("num_proj_sources", _dbHelper.SafeGetIntegerRaw(reader, 47));
+                            result.Add("time_till_bid", _dbHelper.SafeGetIntegerRaw(reader, 48));
 
                             if (detailLevel == "admin")
                             {
