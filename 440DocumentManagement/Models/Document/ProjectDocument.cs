@@ -42,5 +42,9 @@
 		public string parent_original_create_datetime { get; set; }
 		public string parent_original_modified_datetime { get; set; }
 		public string file_original_document_bookmark { get; set; }
+
+        public string doc_subproject { get; set; }
+        public string doc_pagenumber { get; set; }
+        public int doc_sequence { get; set; }
 	}
 }

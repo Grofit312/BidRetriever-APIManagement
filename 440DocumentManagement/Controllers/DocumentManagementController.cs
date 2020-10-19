@@ -72,25 +72,76 @@ namespace _440DocumentManagement.Controllers
 
 				var projectId = projectDocument.project_id;
 				var timestamp = DateTime.UtcNow;
+                var customerId = __getProjectCustomerId(projectId);
+                var docRevision = projectDocument.doc_revision;
 
-				// create project document
-				var createProjectDocumentResult = Post(new DLProjectDocument()
-				{
-					doc_id = docId,
-					doc_name = projectDocument.doc_name,
-					doc_name_abbrv = projectDocument.doc_name_abbrv,
-					doc_number = projectDocument.doc_number,
-					doc_revision = projectDocument.doc_revision,
-					doc_parent_id = projectDocument.doc_parent_id,
-					doc_type = projectDocument.doc_type,
-					status = projectDocument.status,
-					project_id = projectId,
-					submission_id = projectDocument.submission_id,
-					submission_datetime = projectDocument.submission_datetime,
-					project_doc_original_filename = projectDocument.file_original_filename,
-					process_status = projectDocument.process_status,
-					display_name = projectDocument.display_name,
-					doc_size = projectDocument.doc_size
+                // determine document revision for same subproject/page number documents
+                if (!string.IsNullOrEmpty(projectDocument.doc_number) && !string.IsNullOrEmpty(projectDocument.doc_subproject) && !string.IsNullOrEmpty(projectDocument.doc_pagenumber))
+                {
+                    using (var cmd = _dbHelper.SpawnCommand())
+                    {
+                        cmd.CommandText = "SELECT doc_id, doc_revision, doc_next_rev, submission_datetime FROM project_documents "
+                            + $"WHERE project_id='{projectId}' AND doc_number='{projectDocument.doc_number}' AND "
+                            + $"doc_subproject = '{projectDocument.doc_subproject}' AND doc_pagenumber = '{projectDocument.doc_pagenumber}' "
+                            + "ORDER BY doc_revision";
+
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            var matchedDocuments = new List<Dictionary<string, object>> { };
+                            while (reader.Read())
+                            {
+                                matchedDocuments.Add(new Dictionary<string, object>
+                                {
+                                    { "doc_id", _dbHelper.SafeGetString(reader, 0) },
+                                    { "doc_revision", _dbHelper.SafeGetString(reader, 1) },
+                                    { "doc_next_rev", _dbHelper.SafeGetString(reader, 2) },
+                                    { "submission_datetime", _dbHelper.SafeGetString(reader, 3) },
+                                });
+                            }
+
+                            if (matchedDocuments.Count == 0)
+                            {
+                                docRevision = null;
+                            }
+                            else
+                            {
+                                var currentDoc = new Dictionary<string, object>
+                                {
+                                    { "submission_datetime", projectDocument.submission_datetime },
+                                };
+                                docRevision = _documentManagementService.GenerateDocRevision(_dbHelper, customerId, currentDoc, matchedDocuments);
+                                var lastDocument = matchedDocuments.Find(document => string.IsNullOrEmpty((string)document["doc_next_rev"]));
+
+                                reader.Close();
+
+                                cmd.CommandText = $"UPDATE project_documents SET doc_next_rev='{docId}' WHERE doc_id='{lastDocument["doc_id"]}'";
+                                cmd.ExecuteNonQuery();
+                            }
+                        }
+                    }
+                }
+
+                // create project document
+                var createProjectDocumentResult = Post(new DLProjectDocument()
+                {
+                    doc_id = docId,
+                    doc_name = projectDocument.doc_name,
+                    doc_name_abbrv = projectDocument.doc_name_abbrv,
+                    doc_number = projectDocument.doc_number,
+                    doc_revision = docRevision,
+                    doc_parent_id = projectDocument.doc_parent_id,
+                    doc_type = projectDocument.doc_type,
+                    status = projectDocument.status,
+                    project_id = projectId,
+                    submission_id = projectDocument.submission_id,
+                    submission_datetime = projectDocument.submission_datetime,
+                    project_doc_original_filename = projectDocument.file_original_filename,
+                    process_status = projectDocument.process_status,
+                    display_name = projectDocument.display_name,
+                    doc_size = projectDocument.doc_size,
+                    doc_subproject = projectDocument.doc_subproject,
+                    doc_sequence = projectDocument.doc_sequence,
+                    doc_pagenumber = projectDocument.doc_pagenumber,
 				}, true);
 
 				if (createProjectDocumentResult is BadRequestObjectResult)
@@ -946,9 +997,9 @@ namespace _440DocumentManagement.Controllers
 					{
 						cmd.CommandText = "INSERT INTO project_documents (doc_id, project_id, submission_id, submission_datetime, doc_number, doc_revision, "
 												+ "doc_name, doc_type, doc_parent_id, status, create_datetime, "
-												+ "edit_datetime, project_doc_original_filename, process_status, doc_name_abbrv, display_name, doc_size) "
+												+ "edit_datetime, project_doc_original_filename, process_status, doc_name_abbrv, display_name, doc_size, doc_subproject, doc_pagenumber, doc_sequence) "
 												+ "VALUES(@doc_id, @project_id, @submission_id, @submission_datetime, @doc_number, @doc_revision, @doc_name, @doc_type, @doc_parent_id, "
-												+ "@status, @create_datetime, @edit_datetime, @project_doc_original_filename, @process_status, @doc_name_abbrv, @display_name, @doc_size) ON CONFLICT DO NOTHING";
+												+ "@status, @create_datetime, @edit_datetime, @project_doc_original_filename, @process_status, @doc_name_abbrv, @display_name, @doc_size, @doc_subproject, @doc_pagenumber, @doc_sequence) ON CONFLICT DO NOTHING";
 
 						cmd.Parameters.AddWithValue("doc_id", docId);
 						cmd.Parameters.AddWithValue("project_id", projectDocument.project_id);
@@ -967,6 +1018,9 @@ namespace _440DocumentManagement.Controllers
 						cmd.Parameters.AddWithValue("process_status", projectDocument.process_status ?? "queued");
 						cmd.Parameters.AddWithValue("display_name", projectDocument.display_name ?? "");
 						cmd.Parameters.AddWithValue("doc_size", projectDocument.doc_size ?? "");
+                        cmd.Parameters.AddWithValue("doc_subproject", projectDocument.doc_subproject ?? "");
+                        cmd.Parameters.AddWithValue("doc_pagenumber", projectDocument.doc_pagenumber ?? "");
+                        cmd.Parameters.AddWithValue("doc_sequence", (object)projectDocument.doc_sequence ?? DBNull.Value);
 
 						int rowsAffected = cmd.ExecuteNonQuery();
 
@@ -3907,5 +3961,23 @@ namespace _440DocumentManagement.Controllers
 				}
 			}
 		}
+
+        private string __getProjectCustomerId(string project_id)
+        {
+            using (var cmd = _dbHelper.SpawnCommand())
+            {
+                cmd.CommandText = $"SELECT project_customer_id FROM projects WHERE project_id='{project_id}'";
+               
+                using (var reader = cmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        return _dbHelper.SafeGetString(reader, 0);
+                    }
+                }
+            }
+
+            return "";
+        }
 	}
 }
