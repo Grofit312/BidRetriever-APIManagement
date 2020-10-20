@@ -20,35 +20,4 @@ namespace _440DocumentManagement.Models
     public int? note_vote_count { get; set; }
 
   }
-
-
-  public class CustomModel
-  {
-    public string Id { get; set; }
-    public string Name { get; set; }
-    public string Description { get; set; }
-    public string Subject { get; set; }
-    public string ParentId { get; set; }
-    public string UserId { get; set; }
-    public string NoteType { get; set; }
-    public string CompanyId { get; set; }
-    public string NoteParentType { get; set; }
-    public string CreatedDate { get; set; }
-    public string FirstName { get; set; }
-    public string LastName { get; set; }
-    public string UserRole { get; set; }
-
-    public List<CustomModel> Children { get; set; }
-    public CustomModel()
-    {
-      Children = new List<CustomModel>();
-    }
-
-
-    public class FileUploadModel
-    {
-      public byte[] FileBytes { get; set; }
-      public string FileName { get; set; }
-    }
-  }
 }

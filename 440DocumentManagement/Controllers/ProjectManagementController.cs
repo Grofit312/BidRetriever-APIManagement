@@ -346,7 +346,7 @@ namespace _440DocumentManagement.Controllers
                     userLastName = destinationSetting["user_lastname"];
                     customerName = destinationSetting["customer_name"];
 
-                    if (destinationRootPath == string.Empty)
+                    if (string.IsNullOrEmpty(destinationTypeId) || string.IsNullOrEmpty(destinationRootPath) || string.IsNullOrEmpty(destinationAccessToken))
                     {
                         cmd.CommandText = "SELECT destination_access_token, destination_url, "
                           + "destination_root_path, destination_type_id, "

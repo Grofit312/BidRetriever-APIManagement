@@ -14,5 +14,6 @@
         public string office_id { get; set; }
         public string project_id { get; set; }
         public string user_id { get; set; }
+        public bool return_child_notes { get; set; } = false;
     }
 }
