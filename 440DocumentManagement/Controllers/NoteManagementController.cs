@@ -340,7 +340,7 @@ namespace _440DocumentManagement.Controllers
             using (var cmd = _dbHelper.SpawnCommand())
             {
                 cmd.CommandText = "SELECT notes.create_datetime, notes.edit_datetime, notes.note_company_id, notes.note_desc, notes.note_displayname,notes.note_id, notes.note_parent_id, notes.note_parent_type,  notes.note_priority, notes.note_relevance_number, notes.note_status, notes.note_subject, notes.note_timeline_displayname, notes.note_type, notes.note_vote_count, "
-                    + "users.user_firstname, users.user_lastname, customers.customer_name "
+                    + "users.user_firstname, users.user_lastname, customers.customer_name, users.user_id, users.user_role "
                     + "FROM notes "
                     + "LEFT JOIN users ON notes.create_user_id=users.user_id "
                     + "LEFT JOIN customers ON notes.note_company_id=customers.customer_id "
@@ -373,6 +373,8 @@ namespace _440DocumentManagement.Controllers
                             { "note_vote_count", Convert.ToString(reader["note_vote_count"]) },
                             { "author_user_displayname", $"{lastName}, {firstName}" },
                             { "author_company_displayname", customerName },
+                            { "note_user_id", Convert.ToString(reader["user_id"]) },
+                            { "note_user_role", Convert.ToString(reader["user_role"]) },
                         });
                     }
                 }
