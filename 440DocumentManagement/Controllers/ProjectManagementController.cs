@@ -2038,7 +2038,8 @@ namespace _440DocumentManagement.Controllers
                                         + "LEFT JOIN customer_companies ON projects.source_company_id = customer_companies.company_id "
                           + "LEFT JOIN project_documents ON project_submissions.project_submission_id=project_documents.submission_id "
                           + whereString
-                          + "GROUP BY project_submissions.project_submission_id, projects.source_sys_type_id, source_system_types.source_type_name, projects.project_admin_user_id, customer_companies.company_name";
+                          + "GROUP BY project_submissions.project_submission_id, projects.source_sys_type_id, source_system_types.source_type_name, projects.project_admin_user_id, customer_companies.company_name "
+                          + "ORDER BY project_submissions.create_datetime DESC LIMIT 1000";
 
                         var resultList = new List<Dictionary<string, string>>();
 
