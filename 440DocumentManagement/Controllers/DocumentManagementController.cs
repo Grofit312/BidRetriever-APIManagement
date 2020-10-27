@@ -404,6 +404,7 @@ namespace _440DocumentManagement.Controllers
 						if (!string.IsNullOrEmpty(request.doc_name) || !string.IsNullOrEmpty(request.doc_revision))
 						{
 							// #610 - Update Folder Transaction Log
+                            // INCORRECT!!!
 							var updatedDocDetails = _documentManagementService.RetrieveDocument(
 								_dbHelper, request.search_project_document_id);
 							using (var cmd = _dbHelper.SpawnCommand())
@@ -516,55 +517,11 @@ namespace _440DocumentManagement.Controllers
 				}
 
 				// #700 - Update App Transaction Log
+                // INCORRECT!!!
 				var updatedFolderContent = __GetFolderContentFromDocId(request.search_project_document_id);
 				updatedFolderContent.ForEach(content =>
 					_documentManagementService.CreateFolderTransactionLog(_dbHelper, content, "add_file")
 				);
-
-				//	var currentDocument = new Dictionary<string, string> { };
-
-				//	using (var cmd = _dbHelper.SpawnCommand())
-				//	{
-				//		cmd.CommandText = $"SELECT doc_next_rev, doc_number, project_id, doc_name, doc_type FROM project_documents WHERE doc_id='{request.search_project_document_id}'";
-
-				//		using (var reader = cmd.ExecuteReader())
-				//		{
-				//			if (reader.Read())
-				//			{
-				//				currentDocument["doc_id"] = request.search_project_document_id;
-				//				currentDocument["doc_next_rev"] = _dbHelper.SafeGetString(reader, 0);
-				//				currentDocument["doc_number"] = _dbHelper.SafeGetString(reader, 1);
-				//				currentDocument["project_id"] = _dbHelper.SafeGetString(reader, 2);
-				//				currentDocument["doc_name"] = _dbHelper.SafeGetString(reader, 3);
-				//				currentDocument["doc_type"] = _dbHelper.SafeGetString(reader, 4);
-				//			}
-				//			else
-				//			{
-				//				return BadRequest(new { status = "document not found" });
-				//			}
-				//		}
-				//	}
-
-				//	// If doc_number updated
-				//	if (!string.IsNullOrEmpty(request.doc_number))
-				//	{
-				//		var processResult = await __processDocNumberUpdateAsync(currentDocument);
-
-				//		if (processResult == false)
-				//		{
-				//			return BadRequest(new { status = "Failed to process doc number update" });
-				//		}
-				//	}
-				//	// If doc_name updated for single sheet plan
-				//	else if (!string.IsNullOrEmpty(request.doc_name) && currentDocument["doc_type"].Contains("single_sheet_plan"))
-				//	{
-				//		var processResult = await __processDocNameUpdateAsync(currentDocument);
-
-				//		if (processResult == false)
-				//		{
-				//			return BadRequest(new { status = "Failed to process doc name update" });
-				//		}
-				//	}
 
 				return Ok(new
 				{
@@ -2341,7 +2298,7 @@ namespace _440DocumentManagement.Controllers
 							+ "FROM project_documents "
 							+ "LEFT JOIN document_files ON document_files.doc_id=project_documents.doc_id "
 							+ "LEFT JOIN files ON files.file_id=document_files.file_id "
-							+ $"WHERE project_documents.project_id='{request.project_id}' AND files.file_type='comparison_file' ORDER BY project_documents.doc_number";
+							+ $"WHERE project_documents.project_id='{request.project_id}' AND files.file_type='comparison_file' ORDER BY project_documents.doc_number, files.create_datetime DESC";
 
 					using (var reader = cmd.ExecuteReader())
 					{
@@ -2349,17 +2306,26 @@ namespace _440DocumentManagement.Controllers
 
 						while (reader.Read())
 						{
-							result.Add(new Dictionary<string, string>
-							{
-								["file_id"] = _dbHelper.SafeGetString(reader, 0),
-								["doc_id"] = _dbHelper.SafeGetString(reader, 1),
-								["doc_name"] = _dbHelper.SafeGetString(reader, 2),
-								["doc_number"] = _dbHelper.SafeGetString(reader, 3),
-								["doc_revision"] = _dbHelper.SafeGetString(reader, 4),
-								["display_name"] = _dbHelper.SafeGetString(reader, 5),
-								["file_key"] = _dbHelper.SafeGetString(reader, 6),
-								["bucket_name"] = _dbHelper.SafeGetString(reader, 7),
-							});
+                            // Ignore previously generated comparison, only fetch the latest one
+                            var alreadyAdded = result.Find(item =>
+                            {
+                                return item["doc_id"] == _dbHelper.SafeGetString(reader, 1);
+                            });
+
+                            if (alreadyAdded == null)
+                            {
+                                result.Add(new Dictionary<string, string>
+                                {
+                                    ["file_id"] = _dbHelper.SafeGetString(reader, 0),
+                                    ["doc_id"] = _dbHelper.SafeGetString(reader, 1),
+                                    ["doc_name"] = _dbHelper.SafeGetString(reader, 2),
+                                    ["doc_number"] = _dbHelper.SafeGetString(reader, 3),
+                                    ["doc_revision"] = _dbHelper.SafeGetString(reader, 4),
+                                    ["display_name"] = _dbHelper.SafeGetString(reader, 5),
+                                    ["file_key"] = _dbHelper.SafeGetString(reader, 6),
+                                    ["bucket_name"] = _dbHelper.SafeGetString(reader, 7),
+                                });
+                            }
 						}
 						return Ok(result);
 					}
@@ -3659,6 +3625,7 @@ namespace _440DocumentManagement.Controllers
 					+ "LEFT JOIN files ON files.file_id = document_files.file_id "
 					+ "LEFT JOIN project_submissions ON project_submissions.project_submission_id = project_documents.submission_id "
 					+ "WHERE project_documents.doc_id = @doc_id "
+                    // INCORRECT!!!
 					+ "AND files.file_type = 'source_system_original'";
 				cmd.Parameters.AddWithValue("@doc_id", request.search_project_document_id);
 				
