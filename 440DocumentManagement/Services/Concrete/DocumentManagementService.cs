@@ -596,5 +596,56 @@ namespace _440DocumentManagement.Services.Concrete
 				return resultList;
 			}
 		}
+
+        public List<Dictionary<string, object>> FindFolderTransactionLogs(
+            DatabaseHelper databaseHelper,
+            string doc_id)
+        {
+            var logs = new List<Dictionary<string, object>> { };
+
+            using (var cmd = databaseHelper.SpawnCommand())
+            {
+                cmd.CommandText = $"SELECT * FROM folder_transaction_log WHERE doc_id='{doc_id}' ORDER BY folder_transaction_sequence_num ASC";
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read()) {
+                        var projectId = reader["project_id"] as string;
+                        var folderId = reader["folder_id"] as string;
+                        var operationType = reader["operation_type"] as string;
+                        var fileId = reader["file_id"] as string;
+                        var originalFolderName = reader["original_folder_name"] as string;
+                        var newFolderName = reader["new_folder_name"] as string;
+                        var folderPath = reader["folder_path"] as string;
+
+                        var matchedLog = logs.Find(log =>
+                        {
+                            return log["folder_id"] as string == folderId && log["file_id"] as string == fileId;
+                        });
+
+                        if (operationType == "remove_file" && matchedLog != null)
+                        {
+                            logs.Remove(matchedLog);
+                        }
+                        else if (operationType == "add_file" && matchedLog == null)
+                        {
+                            logs.Add(new Dictionary<string, object>
+                            {
+                                { "project_id", projectId },
+                                { "folder_id", folderId },
+                                { "operation_type", operationType },
+                                { "file_id", fileId },
+                                { "original_folder_name", originalFolderName },
+                                { "new_folder_name", newFolderName },
+                                { "folder_path", folderPath },
+                                { "doc_id", doc_id },
+                            });
+                        }
+                    }
+                }
+            }
+
+            return logs;
+        }
 	}
 }
