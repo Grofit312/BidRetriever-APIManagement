@@ -315,7 +315,8 @@ namespace _440DocumentManagement.Controllers
 
 					if (true == true) // check if api_key has admin access
 					{
-						queryString += ", doc_revision = COALESCE(@doc_revision, doc_revision), "
+						queryString += ", "
+                            + (request.doc_revision != "NULL" ? "doc_revision = COALESCE(@doc_revision, doc_revision), " : "doc_revision = NULL, ")
 							+ (request.doc_next_rev != "NULL" ? "doc_next_rev = COALESCE(@doc_next_rev, doc_next_rev)" : "doc_next_rev = NULL");
 					}
 
@@ -376,171 +377,6 @@ namespace _440DocumentManagement.Controllers
 				}
 			}
 		}
-
-
-		[HttpPost]
-		[Route("UpdateDocumentKeyAttributes")]
-		public async Task<IActionResult> PostAsync(KeyAttributeUpdateRequest request)
-		{
-			try
-			{
-				if (string.IsNullOrEmpty(request.search_project_document_id))
-				{
-					return BadRequest(new
-					{
-						status = "Please provide document id"
-					});
-				}
-
-				// #110 - Was a next_rev_id or previous_rev_id passed?
-				if (string.IsNullOrEmpty(request.doc_prev_rev) && string.IsNullOrEmpty(request.doc_next_rev))
-				{
-					// #100 - Did any of the unique key attributes for the document change?
-					if (string.IsNullOrEmpty(request.doc_number)
-						&& string.IsNullOrEmpty(request.doc_pagenumber)
-						&& string.IsNullOrEmpty(request.doc_subproject))
-					{
-						// #600 - doc_name or doc_rev change?
-						if (!string.IsNullOrEmpty(request.doc_name) || !string.IsNullOrEmpty(request.doc_revision))
-						{
-							// #610 - Update Folder Transaction Log
-                            // INCORRECT!!!
-							var updatedDocDetails = _documentManagementService.RetrieveDocument(
-								_dbHelper, request.search_project_document_id);
-							using (var cmd = _dbHelper.SpawnCommand())
-							{
-								cmd.CommandText = "SELECT doc_publish_id, destination_file_name "
-									+ "FROM project_documents_published WHERE doc_id = @doc_id";
-								cmd.Parameters.AddWithValue("doc_id", request.search_project_document_id);
-
-								var publishDocList = new List<Dictionary<string, string>>();
-								using (var reader = cmd.ExecuteReader())
-								{
-									while (reader.Read())
-									{
-										publishDocList.Add(new Dictionary<string, string>
-										{
-											{ "doc_publish_id", _dbHelper.SafeGetString(reader, 0) },
-											{ "destination_file_name", _dbHelper.SafeGetString(reader, 1) }
-										});
-									}
-								}
-								var docName = request.doc_name ?? updatedDocDetails["doc_name"];
-								var docNumber = request.doc_number ?? updatedDocDetails["doc_number"];
-								var docRevision = request.doc_revision ?? updatedDocDetails["doc_revision"];
-								publishDocList.ForEach(publishDoc =>
-								{
-									var planFileName = _documentManagementService.GeneratePlanFileName(
-										_dbHelper, updatedDocDetails["project_id"], docName, docNumber, docRevision);
-									if (publishDoc["destination_file_name"].Contains("comparison")) {
-										planFileName += "_comparison";
-									}
-									planFileName += $".{publishDoc["destination_file_name"].Split(".").Last()}";
-
-									new PublishedDocumentManagementController().Post(new PublishedDocumentUpdateRequest()
-									{
-										search_doc_publish_id = publishDoc["doc_publish_id"],
-										destination_file_name = planFileName
-									});
-								});
-							}
-						}
-
-						// #620 - Same non-key attributes
-						var docUpdateResult = Post(new ProjectDocumentUpdateRequest()
-						{
-							search_project_document_id = request.search_project_document_id,
-							display_name = request.display_name,
-							doc_name = request.doc_name,
-							doc_name_abbrv = request.doc_name_abbrv,
-							doc_version = request.doc_version,
-							doc_discipline = request.doc_discipline,
-							doc_desc = request.doc_desc,
-							process_status = request.process_status,
-							status = request.status,
-							doc_revision = request.doc_revision,
-							doc_sequence = request.doc_sequence
-						}, true);
-
-						if (docUpdateResult is BadRequestObjectResult)
-						{
-							return docUpdateResult;
-						}
-					}
-					else
-					{
-						// #200 - Do the updated document key field(s) match an existing project_document?
-						var matchedDocuments = _documentManagementService.RetrieveMatchedDocumentsWithKeyAttributes(
-							_dbHelper,
-							null,
-							request.search_project_document_id,
-							request.doc_number,
-							request.doc_pagenumber,
-							request.doc_subproject);
-
-						if (matchedDocuments.Count > 0)
-						{
-							// #300 - Is updated_doc the latest revision?
-							await __ProcessDuplicatedDocumentKeyAttributes(request, matchedDocuments);
-						}
-
-						// #330 - Modify updated_doc attributes
-						var docUpdateResult = Post(new ProjectDocumentUpdateRequest()
-						{
-							search_project_document_id = request.search_project_document_id,
-							display_name = request.display_name,
-							doc_name = request.doc_name,
-							doc_name_abbrv = request.doc_name_abbrv,
-							doc_number = request.doc_number,
-							doc_version = request.doc_version,
-							doc_discipline = request.doc_discipline,
-							doc_desc = request.doc_desc,
-							process_status = request.process_status,
-							status = request.status,
-							doc_revision = request.doc_revision,
-							doc_next_rev = request.doc_next_rev,
-							doc_pagenumber = request.doc_pagenumber,
-							doc_sequence = request.doc_sequence,
-							doc_subproject = request.doc_subproject
-						}, true);
-
-						if (docUpdateResult is BadRequestObjectResult)
-						{
-							return docUpdateResult;
-						}
-					}
-				}
-				else
-				{
-					// #300 - Is updated_doc the latest revision?
-					await __ProcessDuplicatedDocumentKeyAttributes(request);
-				}
-
-				// #700 - Update App Transaction Log
-                // INCORRECT!!!
-				var updatedFolderContent = __GetFolderContentFromDocId(request.search_project_document_id);
-				updatedFolderContent.ForEach(content =>
-					_documentManagementService.CreateFolderTransactionLog(_dbHelper, content, "add_file")
-				);
-
-				return Ok(new
-				{
-					status = "updated"
-				});
-			}
-			catch (Exception ex)
-			{
-				return BadRequest(new
-				{
-					status = ex.Message
-				});
-			}
-			finally
-			{
-				_dbHelper.CloseConnection();
-			}
-		}
-
 
 		[HttpPost]
 		[Route("UpdateFile")]
@@ -3063,367 +2899,6 @@ namespace _440DocumentManagement.Controllers
 			}
 		}
 
-		private async Task<bool> __processDocNumberUpdateAsync(Dictionary<string, string> currentDocument)
-		{
-			try
-			{
-				// Read project settings
-				var destinationRootPath = "";
-				var destinationToken = "";
-
-				using (var cmd = _dbHelper.SpawnCommand())
-				{
-					cmd.CommandText = "SELECT setting_value FROM project_settings "
-							+ $"WHERE project_id='{currentDocument["project_id"]}' "
-							+ "AND setting_name='PROJECT_DESTINATION_PATH'";
-
-					using (var reader = cmd.ExecuteReader())
-					{
-						if (reader.Read())
-						{
-							destinationRootPath = _dbHelper.SafeGetString(reader, 0);
-						}
-					}
-
-					cmd.CommandText = "SELECT setting_value FROM project_settings "
-							+ $"WHERE project_id='{currentDocument["project_id"]}' "
-							+ "AND setting_name='PROJECT_DESTINATION_TOKEN'";
-
-					using (var reader = cmd.ExecuteReader())
-					{
-						if (reader.Read())
-						{
-							destinationToken = _dbHelper.SafeGetString(reader, 0);
-						}
-					}
-				}
-
-				// Remove incorrectly published files
-				using (var dbx = new DropboxClient(destinationToken))
-				{
-					using (var cmd = _dbHelper.SpawnCommand())
-					{
-						cmd.CommandText = "SELECT destination_folder_path, destination_file_name FROM project_documents_published "
-								+ $"WHERE doc_id='{currentDocument["doc_id"]}'";
-
-						using (var reader = cmd.ExecuteReader())
-						{
-							while (reader.Read())
-							{
-								var destinationFolderPath = _dbHelper.SafeGetString(reader, 0);
-								var destinationFileName = _dbHelper.SafeGetString(reader, 1);
-
-								if (!destinationFolderPath.StartsWith("Source Files/"))
-								{
-									var destinationFullPath = $"{destinationRootPath}/{destinationFolderPath}/{destinationFileName}";
-
-									try
-									{
-										await dbx.Files.DeleteV2Async(destinationFullPath);
-									}
-									catch (Exception) { }
-								}
-							}
-						}
-
-						cmd.CommandText = "DELETE FROM project_folder_contents USING project_folders "
-								+ "WHERE project_folder_contents.folder_id=project_folders.folder_id AND "
-								+ $"project_folder_contents.doc_id='{currentDocument["doc_id"]}' AND "
-								+ "project_folders.folder_type!='source_current' AND "
-								+ "project_folders.folder_type!='source_history'";
-
-						cmd.ExecuteNonQuery();
-
-						if (!string.IsNullOrEmpty(currentDocument["doc_next_rev"]))
-						{
-							var comparisonFileId = "";
-
-							cmd.CommandText = "SELECT destination_folder_path, destination_file_name, file_id FROM project_documents_published "
-								+ $"WHERE doc_id='{currentDocument["doc_next_rev"]}' "
-								+ "AND destination_file_name like '%_comparison.pdf' ORDER BY create_datetime DESC";
-
-							using (var reader = cmd.ExecuteReader())
-							{
-								if (reader.Read())
-								{
-									var destinationFolderPath = _dbHelper.SafeGetString(reader, 0);
-									var destinationFileName = _dbHelper.SafeGetString(reader, 1);
-									var destinationFullPath = $"{destinationRootPath}/{destinationFolderPath}/{destinationFileName}";
-									comparisonFileId = _dbHelper.SafeGetString(reader, 2);
-
-									try
-									{
-										await dbx.Files.DeleteV2Async(destinationFullPath);
-									}
-									catch (Exception) { }
-								}
-							}
-
-							cmd.CommandText = $"DELETE FROM project_folder_contents WHERE file_id='{comparisonFileId}'";
-							cmd.ExecuteNonQuery();
-
-							var revisions = _documentManagementService.GetDocumentRevisions(_dbHelper, currentDocument["doc_id"]);
-							var lastRevision = revisions[revisions.Count - 1];
-
-							cmd.CommandText = "SELECT destination_folder_path, destination_file_name FROM project_documents_published "
-								+ $"WHERE doc_id='{lastRevision["doc_id"]}'";
-
-							using (var reader = cmd.ExecuteReader())
-							{
-								while (reader.Read())
-								{
-									var destinationFolderPath = _dbHelper.SafeGetString(reader, 0);
-									var destinationFileName = _dbHelper.SafeGetString(reader, 1);
-
-									if (!destinationFolderPath.StartsWith("Source Files/"))
-									{
-										var destinationFullPath = $"{destinationRootPath}/{destinationFolderPath}/{destinationFileName}";
-
-										try
-										{
-											await dbx.Files.DeleteV2Async(destinationFullPath);
-										}
-										catch (Exception) { }
-									}
-								}
-							}
-						}
-					}
-				}
-
-				// Update old chain
-				var prevDocId = _documentManagementService.GetPreviousRevisionDocId(_dbHelper, currentDocument["doc_id"]);
-
-				if (!string.IsNullOrEmpty(prevDocId))
-				{
-					using (var cmd = _dbHelper.SpawnCommand())
-					{
-						if (string.IsNullOrEmpty(currentDocument["doc_next_rev"]))
-						{
-							cmd.CommandText = $"UPDATE project_documents SET doc_next_rev=NULL WHERE doc_id='{prevDocId}'";
-						}
-						else
-						{
-							cmd.CommandText = $"UPDATE project_documents SET doc_next_rev='{currentDocument["doc_next_rev"]}' WHERE doc_id='{prevDocId}'";
-						}
-
-						cmd.ExecuteNonQuery();
-					}
-				}
-
-				// Re-schedule 940 job for the current document
-				var currentFileId = __getDocFileId(currentDocument["doc_id"]);
-
-				var updateRequest = new UpdateItemRequest
-				{
-					TableName = Constants.TABLE_PROJECT_STANDARDIZATION,
-					Key = new Dictionary<string, AttributeValue>() { { "file_id", new AttributeValue { S = currentFileId } } },
-					ExpressionAttributeNames = new Dictionary<string, string>()
-					{
-						{ "#process_status", "process_status" },
-						{ "#sheet_number", "sheet_number" },
-						{ "#sheet_name", "sheet_name" },
-					},
-					ExpressionAttributeValues = new Dictionary<string, AttributeValue>()
-					{
-						{ ":process_status", new AttributeValue { S = "processing" } },
-						{ ":sheet_number", new AttributeValue { S = currentDocument["doc_number"] } },
-						{ ":sheet_name", new AttributeValue { S = currentDocument["doc_name"] } },
-					},
-					UpdateExpression = "SET #process_status = :process_status, #sheet_number = :sheet_number, #sheet_name = :sheet_name"
-				};
-
-				await _dynamoDBClient.UpdateItemAsync(updateRequest);
-
-				// Re-schedule original next rev document if exists
-				if (!string.IsNullOrEmpty(currentDocument["doc_next_rev"]))
-				{
-					var nextFileId = __getDocFileId(currentDocument["doc_next_rev"]);
-
-					updateRequest = new UpdateItemRequest
-					{
-						TableName = Constants.TABLE_PROJECT_STANDARDIZATION,
-						Key = new Dictionary<string, AttributeValue>() { { "file_id", new AttributeValue { S = nextFileId } } },
-						ExpressionAttributeNames = new Dictionary<string, string>()
-						{
-							{ "#process_status", "process_status" },
-						},
-						ExpressionAttributeValues = new Dictionary<string, AttributeValue>()
-						{
-							{ ":process_status", new AttributeValue { S = "processing" } },
-						},
-						UpdateExpression = "SET #process_status = :process_status"
-					};
-
-					await _dynamoDBClient.UpdateItemAsync(updateRequest);
-				}
-				else if (!string.IsNullOrEmpty(prevDocId))  // Re-schedule prev document if exists
-				{
-					var prevFileId = __getDocFileId(prevDocId);
-
-					updateRequest = new UpdateItemRequest
-					{
-						TableName = Constants.TABLE_PROJECT_STANDARDIZATION,
-						Key = new Dictionary<string, AttributeValue>() { { "file_id", new AttributeValue { S = prevFileId } } },
-						ExpressionAttributeNames = new Dictionary<string, string>()
-						{
-							{ "#process_status", "process_status" },
-						},
-						ExpressionAttributeValues = new Dictionary<string, AttributeValue>()
-						{
-							{ ":process_status", new AttributeValue { S = "processing" } },
-						},
-						UpdateExpression = "SET #process_status = :process_status"
-					};
-
-					await _dynamoDBClient.UpdateItemAsync(updateRequest);
-				}
-
-				return true;
-			}
-			catch (Exception)
-			{
-				return false;
-			}
-		}
-
-		private async Task<bool> __processDocNameUpdateAsync(Dictionary<string, string> currentDocument)
-		{
-			try
-			{
-				// Read project settings
-				var destinationRootPath = "";
-				var destinationToken = "";
-
-				using (var cmd = _dbHelper.SpawnCommand())
-				{
-					cmd.CommandText = "SELECT setting_value FROM project_settings "
-							+ $"WHERE project_id='{currentDocument["project_id"]}' "
-							+ "AND setting_name='PROJECT_DESTINATION_PATH'";
-
-					using (var reader = cmd.ExecuteReader())
-					{
-						if (reader.Read())
-						{
-							destinationRootPath = _dbHelper.SafeGetString(reader, 0);
-						}
-					}
-
-					cmd.CommandText = "SELECT setting_value FROM project_settings "
-							+ $"WHERE project_id='{currentDocument["project_id"]}' "
-							+ "AND setting_name='PROJECT_DESTINATION_TOKEN'";
-
-					using (var reader = cmd.ExecuteReader())
-					{
-						if (reader.Read())
-						{
-							destinationToken = _dbHelper.SafeGetString(reader, 0);
-						}
-					}
-				}
-
-				// Remove incorrectly published files
-				using (var dbx = new DropboxClient(destinationToken))
-				{
-					using (var cmd = _dbHelper.SpawnCommand())
-					{
-						cmd.CommandText = "SELECT destination_folder_path, destination_file_name FROM project_documents_published "
-								+ $"WHERE doc_id='{currentDocument["doc_id"]}'";
-
-						using (var reader = cmd.ExecuteReader())
-						{
-							while (reader.Read())
-							{
-								var destinationFolderPath = _dbHelper.SafeGetString(reader, 0);
-								var destinationFileName = _dbHelper.SafeGetString(reader, 1);
-
-								if (!destinationFolderPath.StartsWith("Source Files/"))
-								{
-									var destinationFullPath = $"{destinationRootPath}/{destinationFolderPath}/{destinationFileName}";
-
-									try
-									{
-										await dbx.Files.DeleteV2Async(destinationFullPath);
-									}
-									catch (Exception) { }
-								}
-							}
-						}
-
-						cmd.CommandText = "DELETE FROM project_folder_contents USING project_folders "
-								+ "WHERE project_folder_contents.folder_id=project_folders.folder_id AND "
-								+ $"project_folder_contents.doc_id='{currentDocument["doc_id"]}' AND "
-								+ "project_folders.folder_type!='source_current' AND "
-								+ "project_folders.folder_type!='source_history'";
-
-						cmd.ExecuteNonQuery();
-					}
-				}
-
-				// Re-schedule 940 job for the current document
-				var currentFileId = __getDocFileId(currentDocument["doc_id"]);
-
-				var updateRequest = new UpdateItemRequest
-				{
-					TableName = Constants.TABLE_PROJECT_STANDARDIZATION,
-					Key = new Dictionary<string, AttributeValue>() { { "file_id", new AttributeValue { S = currentFileId } } },
-					ExpressionAttributeNames = new Dictionary<string, string>()
-					{
-						{ "#process_status", "process_status" },
-						{ "#sheet_name", "sheet_name" },
-					},
-					ExpressionAttributeValues = new Dictionary<string, AttributeValue>()
-					{
-						{ ":process_status", new AttributeValue { S = "processing" } },
-						{ ":sheet_name", new AttributeValue { S = currentDocument["doc_name"] } },
-					},
-					UpdateExpression = "SET #process_status = :process_status, #sheet_name = :sheet_name"
-				};
-
-				await _dynamoDBClient.UpdateItemAsync(updateRequest);
-
-				return true;
-			}
-			catch (Exception)
-			{
-				return false;
-			}
-		}
-
-		private string __getDocFileId(string doc_id)
-		{
-			using (var cmd = _dbHelper.SpawnCommand())
-			{
-				cmd.CommandText = "SELECT files.file_id FROM project_documents "
-						+ "LEFT JOIN document_files ON document_files.doc_id=project_documents.doc_id "
-						+ "LEFT JOIN files ON files.file_id=document_files.file_id "
-						+ $"WHERE project_documents.doc_id='{doc_id}' AND files.file_type='enhanced_original'";
-
-				using (var reader = cmd.ExecuteReader())
-				{
-					if (reader.Read())
-					{
-						return _dbHelper.SafeGetString(reader, 0);
-					}
-				}
-
-				cmd.CommandText = "SELECT files.file_id FROM project_documents "
-						+ "LEFT JOIN document_files ON document_files.doc_id=project_documents.doc_id "
-						+ "LEFT JOIN files ON files.file_id=document_files.file_id "
-						+ $"WHERE project_documents.doc_id='{doc_id}' AND files.file_type='source_system_original'";
-
-				using (var reader = cmd.ExecuteReader())
-				{
-					if (reader.Read())
-					{
-						return _dbHelper.SafeGetString(reader, 0);
-					}
-				}
-			}
-
-			return string.Empty;
-		}
-
 		private bool __isSourceFileSubmissionFolderEnabled(string project_id)
 		{
 			using (var cmd = _dbHelper.SpawnCommand())
@@ -3576,7 +3051,198 @@ namespace _440DocumentManagement.Controllers
 			}
 		}
 
-		private async Task __ProcessDuplicatedDocumentKeyAttributes(
+        private string __getProjectCustomerId(string project_id)
+        {
+            using (var cmd = _dbHelper.SpawnCommand())
+            {
+                cmd.CommandText = $"SELECT project_customer_id FROM projects WHERE project_id='{project_id}'";
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        return _dbHelper.SafeGetString(reader, 0);
+                    }
+                }
+            }
+
+            return "";
+        }
+
+        [HttpPost]
+        [Route("UpdateDocumentKeyAttributes")]
+        public async Task<IActionResult> PostAsync(KeyAttributeUpdateRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(request.search_project_document_id))
+                {
+                    return BadRequest(new
+                    {
+                        status = "Please provide document id"
+                    });
+                }
+
+                // #110 - Was a next_rev_id or previous_rev_id passed?
+                if (string.IsNullOrEmpty(request.doc_prev_rev) && string.IsNullOrEmpty(request.doc_next_rev))
+                {
+                    // #100 - Did any of the unique key attributes for the document change?
+                    if (string.IsNullOrEmpty(request.doc_number)
+                        && string.IsNullOrEmpty(request.doc_pagenumber)
+                        && string.IsNullOrEmpty(request.doc_subproject))
+                    {
+                        // #600 - doc_name or doc_rev change?
+                        if (!string.IsNullOrEmpty(request.doc_name) || !string.IsNullOrEmpty(request.doc_revision))
+                        {
+                            // #610 - Update Folder Transaction Log
+                            var existingLogs = _documentManagementService.FindFolderTransactionLogs(_dbHelper, request.search_project_document_id);
+
+                            foreach (var log in existingLogs)
+                            {
+                                _documentManagementService.CreateFolderTransactionLog(_dbHelper, log, "remove_file");
+                            }
+
+                            foreach (var log in existingLogs)
+                            {
+                                _documentManagementService.CreateFolderTransactionLog(_dbHelper, log, "add_file");
+                            }
+                        }
+
+                        // #620 - Same non-key attributes
+                        var docUpdateResult = Post(new ProjectDocumentUpdateRequest()
+                        {
+                            search_project_document_id = request.search_project_document_id,
+                            display_name = request.display_name,
+                            doc_name = request.doc_name,
+                            doc_name_abbrv = request.doc_name_abbrv,
+                            doc_version = request.doc_version,
+                            doc_discipline = request.doc_discipline,
+                            doc_desc = request.doc_desc,
+                            process_status = request.process_status,
+                            status = request.status,
+                            doc_revision = request.doc_revision,
+                            doc_sequence = request.doc_sequence
+                        }, true);
+
+                        if (docUpdateResult is BadRequestObjectResult)
+                        {
+                            return docUpdateResult;
+                        }
+                    }
+                    else
+                    {
+                        // #200 - Do the updated document key field(s) match an existing project_document?
+                        var matchedDocuments = _documentManagementService.RetrieveMatchedDocumentsWithKeyAttributes(
+                            _dbHelper,
+                            null,
+                            request.search_project_document_id,
+                            request.doc_number,
+                            request.doc_pagenumber,
+                            request.doc_subproject);
+
+                        if (matchedDocuments.Count > 0)
+                        {
+                            // #300 - Is updated_doc the latest revision?
+                            await __ProcessDuplicatedDocumentKeyAttributes(request, matchedDocuments);
+                        }
+                        else
+                        {
+                            // Update existing revision chain
+                            var previousDocId = _documentManagementService.GetPreviousRevisionDocId(_dbHelper, request.search_project_document_id);
+                            var nextDocId = _documentManagementService.GetNextRevisionDocId(_dbHelper, request.search_project_document_id);
+
+                            if (previousDocId != null)
+                            {
+                                if (nextDocId == null)
+                                {
+                                    Post(new ProjectDocumentUpdateRequest()
+                                    {
+                                        search_project_document_id = previousDocId,
+                                        doc_next_rev = "NULL",
+                                    }, true);
+                                }
+                                else
+                                {
+                                    Post(new ProjectDocumentUpdateRequest()
+                                    {
+                                        search_project_document_id = previousDocId,
+                                        doc_next_rev = nextDocId,
+                                    }, true);
+                                }
+                            }
+
+                            // Create new comparison
+                         
+                            // Publish prev doc to current plans, if next doc is null
+
+                            // #610 - Update Folder Transaction Log
+                            var existingLogs = _documentManagementService.FindFolderTransactionLogs(_dbHelper, request.search_project_document_id);
+
+                            foreach (var log in existingLogs)
+                            {
+                                _documentManagementService.CreateFolderTransactionLog(_dbHelper, log, "remove_file");
+                            }
+
+                            foreach (var log in existingLogs)
+                            {
+                                _documentManagementService.CreateFolderTransactionLog(_dbHelper, log, "add_file");
+                            }
+
+                            // #330 - Modify updated_doc attributes
+                            var docUpdateResult = Post(new ProjectDocumentUpdateRequest()
+                            {
+                                search_project_document_id = request.search_project_document_id,
+                                display_name = request.display_name,
+                                doc_name = request.doc_name,
+                                doc_name_abbrv = request.doc_name_abbrv,
+                                doc_number = request.doc_number,
+                                doc_version = request.doc_version,
+                                doc_discipline = request.doc_discipline,
+                                doc_desc = request.doc_desc,
+                                process_status = request.process_status,
+                                status = request.status,
+                                doc_revision = "NULL",
+                                doc_next_rev = "NULL",
+                                doc_pagenumber = request.doc_pagenumber,
+                                doc_sequence = request.doc_sequence,
+                                doc_subproject = request.doc_subproject
+                            }, true);
+
+                            if (docUpdateResult is BadRequestObjectResult)
+                            {
+                                return docUpdateResult;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // #300 - Is updated_doc the latest revision?
+                    await __ProcessDuplicatedDocumentKeyAttributes(request);
+                }
+
+                // #700 - Update App Transaction Log
+                // DO SOMETHING HERE!!!
+
+                return Ok(new
+                {
+                    status = "updated"
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    status = ex.Message
+                });
+            }
+            finally
+            {
+                _dbHelper.CloseConnection();
+            }
+        }
+
+        private async Task __ProcessDuplicatedDocumentKeyAttributes(
 			KeyAttributeUpdateRequest request,
 			List<Dictionary<string, object>> matchedDocuments = null)
 		{
@@ -3928,23 +3594,5 @@ namespace _440DocumentManagement.Controllers
 				}
 			}
 		}
-
-        private string __getProjectCustomerId(string project_id)
-        {
-            using (var cmd = _dbHelper.SpawnCommand())
-            {
-                cmd.CommandText = $"SELECT project_customer_id FROM projects WHERE project_id='{project_id}'";
-               
-                using (var reader = cmd.ExecuteReader())
-                {
-                    if (reader.Read())
-                    {
-                        return _dbHelper.SafeGetString(reader, 0);
-                    }
-                }
-            }
-
-            return "";
-        }
 	}
 }
