@@ -3083,6 +3083,17 @@ namespace _440DocumentManagement.Controllers
                     });
                 }
 
+                // Preload all related/necessary info
+                var relatedInfo = _documentManagementService.GetInfoForKeyAttributeUpdate(_dbHelper, request.search_project_document_id);
+
+                if (relatedInfo == null)
+                {
+                    return BadRequest(new
+                    {
+                        status = "Provided doc_id is invalid, failed to get info"
+                    });
+                }
+
                 // #110 - Was a next_rev_id or previous_rev_id passed?
                 if (string.IsNullOrEmpty(request.doc_prev_rev) && string.IsNullOrEmpty(request.doc_next_rev))
                 {
@@ -3094,6 +3105,10 @@ namespace _440DocumentManagement.Controllers
                         // #600 - doc_name or doc_rev change?
                         if (!string.IsNullOrEmpty(request.doc_name) || !string.IsNullOrEmpty(request.doc_revision))
                         {
+                            // TODO: Republish updated document (delete existing ones if necessary)
+
+
+
                             // #610 - Update Folder Transaction Log
                             var existingLogs = _documentManagementService.FindFolderTransactionLogs(_dbHelper, request.search_project_document_id);
 
@@ -3134,46 +3149,50 @@ namespace _440DocumentManagement.Controllers
                         // #200 - Do the updated document key field(s) match an existing project_document?
                         var matchedDocuments = _documentManagementService.RetrieveMatchedDocumentsWithKeyAttributes(
                             _dbHelper,
-                            null,
                             request.search_project_document_id,
+                            relatedInfo["project_id"],
                             request.doc_number,
                             request.doc_pagenumber,
                             request.doc_subproject);
 
+                        // Update existing revision chain
+                        var previousDocId = _documentManagementService.GetPreviousRevisionDocId(_dbHelper, request.search_project_document_id);
+                        var nextDocId = _documentManagementService.GetNextRevisionDocId(_dbHelper, request.search_project_document_id);
+
+                        if (previousDocId != null)
+                        {
+                            if (nextDocId == null)
+                            {
+                                Post(new ProjectDocumentUpdateRequest()
+                                {
+                                    search_project_document_id = previousDocId,
+                                    doc_next_rev = "NULL",
+                                }, true);
+                            }
+                            else
+                            {
+                                Post(new ProjectDocumentUpdateRequest()
+                                {
+                                    search_project_document_id = previousDocId,
+                                    doc_next_rev = nextDocId,
+                                }, true);
+                            }
+                        }
+
+                        // TODO: Create new comparison in the existing chain (if both prev and next docs exist)
+
+                        // TODO: Publish prev doc (in existing chain) to current plans, if next doc is null
+
                         if (matchedDocuments.Count > 0)
                         {
-                            // #300 - Is updated_doc the latest revision?
-                            await __ProcessDuplicatedDocumentKeyAttributes(request, matchedDocuments);
+                            // #300 - There are matches, 
+                            await __ProcessDuplicatedDocumentKeyAttributes(request, matchedDocuments, relatedInfo);
                         }
                         else
                         {
-                            // Update existing revision chain
-                            var previousDocId = _documentManagementService.GetPreviousRevisionDocId(_dbHelper, request.search_project_document_id);
-                            var nextDocId = _documentManagementService.GetNextRevisionDocId(_dbHelper, request.search_project_document_id);
+                            // TODO: Publish current doc to current plans (because it is the first and latest one in the new revision chain
 
-                            if (previousDocId != null)
-                            {
-                                if (nextDocId == null)
-                                {
-                                    Post(new ProjectDocumentUpdateRequest()
-                                    {
-                                        search_project_document_id = previousDocId,
-                                        doc_next_rev = "NULL",
-                                    }, true);
-                                }
-                                else
-                                {
-                                    Post(new ProjectDocumentUpdateRequest()
-                                    {
-                                        search_project_document_id = previousDocId,
-                                        doc_next_rev = nextDocId,
-                                    }, true);
-                                }
-                            }
-
-                            // Create new comparison
-                         
-                            // Publish prev doc to current plans, if next doc is null
+                            // TODO: Republish updated document (delete existing ones)
 
                             // #610 - Update Folder Transaction Log
                             var existingLogs = _documentManagementService.FindFolderTransactionLogs(_dbHelper, request.search_project_document_id);
@@ -3217,8 +3236,8 @@ namespace _440DocumentManagement.Controllers
                 }
                 else
                 {
-                    // #300 - Is updated_doc the latest revision?
-                    await __ProcessDuplicatedDocumentKeyAttributes(request);
+                    // #300 doc_next_rev or doc_prev_rev change => Should update the revision chain
+                    await __ProcessDocumentRevisionAttributesChange(request);
                 }
 
                 // #700 - Update App Transaction Log
@@ -3244,355 +3263,86 @@ namespace _440DocumentManagement.Controllers
 
         private async Task __ProcessDuplicatedDocumentKeyAttributes(
 			KeyAttributeUpdateRequest request,
-			List<Dictionary<string, object>> matchedDocuments = null)
+			List<Dictionary<string, string>> matchedDocuments,
+            Dictionary<string, string> relatedInfo)
 		{
-			if (matchedDocuments == null)
-			{
-				// Means the procedure is called by #110.
-				if (!string.IsNullOrEmpty(request.doc_prev_rev))
-				{
-					matchedDocuments = _documentManagementService.RetrieveMatchedDocumentsWithKeyAttributes(
-						_dbHelper, request.doc_prev_rev, null, null, null, null);
-					if (request.doc_prev_rev != (string)matchedDocuments[0]["doc_id"])
-					{
-						throw new Exception($"Prev_doc_id is not the earliest in the revision chain: {request.doc_prev_rev}");
-					}
-				}
-				else if (!string.IsNullOrEmpty(request.doc_next_rev))
-				{
-					matchedDocuments = _documentManagementService.RetrieveMatchedDocumentsWithKeyAttributes(
-						_dbHelper, request.doc_next_rev, null, null, null, null);
-					if (request.doc_next_rev != (string)matchedDocuments.Last()["doc_id"])
-					{
-						throw new Exception($"Next_doc_id is not the latest in the revision chain: {request.doc_next_rev}");
-					}
-				}
-				else
-				{
-					throw new Exception("doc_next_rev and doc_prev_rev is empty");
-				}
-			}
+            // Determine where to insert the current document
+            var index = 0;
+            var currentDocumentDate = relatedInfo["create_datetime"];
 
-			var updatedDocDetails = new Dictionary<string, object>();
-			string updatedDocCustomerId = null;
-			using (var cmd = _dbHelper.SpawnCommand())
-			{
-				cmd.CommandText = "SELECT "
-					+ "project_documents.doc_id, project_documents.doc_revision, "
-					+ "files.file_original_modified_datetime, files.bucket_name, files.file_original_filename, "
-					+ "project_documents.submission_datetime, project_submissions.project_id, "
-					+ "project_submissions.submitter_email, project_submissions.user_timezone, "
-					+ "project_submissions.submission_name, project_submissions.project_submission_id, "
-					+ "project_submissions.project_name, "
-					+ "project_documents.doc_name, project_documents.doc_number, "
-					+ "project_submissions.customer_id "
-					+ "FROM project_documents "
-					+ "LEFT JOIN document_files ON document_files.doc_id = project_documents.doc_id "
-					+ "LEFT JOIN files ON files.file_id = document_files.file_id "
-					+ "LEFT JOIN project_submissions ON project_submissions.project_submission_id = project_documents.submission_id "
-					+ "WHERE project_documents.doc_id = @doc_id "
-                    // INCORRECT!!!
-					+ "AND files.file_type = 'source_system_original'";
-				cmd.Parameters.AddWithValue("@doc_id", request.search_project_document_id);
-				
-				using (var reader = cmd.ExecuteReader())
-				{
-					if (reader.Read())
-					{
-						updatedDocDetails = new Dictionary<string, object>()
-						{
-							{ "doc_id", _dbHelper.SafeGetString(reader, 0) },
-							{ "doc_revision", _dbHelper.SafeGetString(reader, 1) },
-							{
-								"file_original_modified_datetime",
-								DateTimeHelper.ConvertToUTCDateTime(_dbHelper.SafeGetDatetimeString(reader, 2))
-							},
-							{ "bucket_name", _dbHelper.SafeGetString(reader, 3) },
-							{ "file_original_filename", _dbHelper.SafeGetString(reader, 4) },
-							{ "submission_datetime", _dbHelper.SafeGetDatetimeString(reader, 5) },
-							{ "project_id", _dbHelper.SafeGetString(reader, 6) },
-							{ "submitter_email", _dbHelper.SafeGetString(reader, 7) },
-							{ "user_timezone", _dbHelper.SafeGetString(reader, 8) },
-							{ "submission_name", _dbHelper.SafeGetString(reader, 9) },
-							{ "submission_id", _dbHelper.SafeGetString(reader, 10) },
-							{ "project_name", _dbHelper.SafeGetString(reader, 11) },
-							{ "doc_name", _dbHelper.SafeGetString(reader, 12) },
-							{ "doc_number", _dbHelper.SafeGetString(reader, 13) }
-						};
-						updatedDocCustomerId = _dbHelper.SafeGetString(reader, 14);
-					}
-					else
-					{
-						throw new Exception($"Invalid doc id: {request.search_project_document_id}");
-					}
-				}
-			}
-			
-			// #300 - Is updated_doc the latest revision?
-			if ((!string.IsNullOrEmpty(request.doc_prev_rev) && string.IsNullOrEmpty(request.doc_next_rev))
-				|| (string.IsNullOrEmpty(request.doc_prev_rev)
-						&& string.IsNullOrEmpty(request.doc_next_rev)
-						&& ((DateTime)updatedDocDetails["file_original_modified_datetime"]).CompareTo(
-							(DateTime)matchedDocuments.Last()["file_original_modified_datetime"]) >= 0))
-			{
-				if (matchedDocuments.Count > 0)
-				{
-					var prevDocId = (string)matchedDocuments.Last()["doc_id"];
+            if (!string.IsNullOrEmpty(relatedInfo["parent_original_modified_datetime"]))
+            {
+                currentDocumentDate = relatedInfo["parent_original_modified_datetime"];
+            }
+            else if (!string.IsNullOrEmpty(relatedInfo["file_original_modified_datetime"]))
+            {
+                currentDocumentDate = relatedInfo["file_original_modified_datetime"];
+            }
 
-					// Decide Revision
-					var updatedDocRevision = _documentManagementService.GenerateDocRevision(
-						_dbHelper, updatedDocCustomerId, updatedDocDetails, matchedDocuments);
-					
-					matchedDocuments.Add(updatedDocDetails);
+            while (index < matchedDocuments.Count)
+            {
+                var matchedDocument = matchedDocuments[index];
+                var matchedDocumentDate = matchedDocument["create_datetime"];
 
-					// #310 - Update Previous Revision Attributes
-					using (var cmd = _dbHelper.SpawnCommand())
-					{
-						cmd.CommandText = "UPDATE project_documents SET doc_next_rev = @doc_next_rev where doc_id = @doc_id";
-						cmd.Parameters.AddWithValue("@doc_id", prevDocId);
-						cmd.Parameters.AddWithValue("@doc_next_rev", request.search_project_document_id);
-						cmd.ExecuteNonQuery();
-					}
+                if (!string.IsNullOrEmpty(matchedDocument["parent_original_modified_datetime"]))
+                {
+                    matchedDocumentDate = matchedDocument["parent_original_modified_datetime"];
+                }
+                else if (!string.IsNullOrEmpty(matchedDocument["file_original_modified_datetime"]))
+                {
+                    matchedDocumentDate = matchedDocument["file_original_modified_datetime"];
+                }
 
-					// #320 - Create Previous Rev Comparison
-					var docComparison = updatedDocDetails;
-					docComparison.Add("prev_doc_id", prevDocId);
-					await _lambdaClient.InvokeAsync(new InvokeRequest
-					{
-						FunctionName = "9414ComparisonGenerator-External",
-						Payload = Newtonsoft.Json.JsonConvert.SerializeObject(docComparison)
-					});
+                if (currentDocumentDate.CompareTo(matchedDocumentDate) > 0)
+                {
+                    index++;
+                }
+                else
+                {
+                    break;
+                }
+            }
 
-					// Update Document with Updated Revision
-					using (var cmd = _dbHelper.SpawnCommand())
-					{
-						cmd.CommandText = "UPDATE project_documents SET doc_revision = @doc_revision WHERE doc_id = @doc_id";
-						cmd.Parameters.AddWithValue("@doc_id", request.search_project_document_id);
-						cmd.Parameters.AddWithValue("@doc_revision", updatedDocRevision);
-						cmd.ExecuteNonQuery();
-					}
+            // So it should be inserted before [index], now update revision chain
+            if (index == matchedDocuments.Count)
+            {
+                // Become latest
+            }
+            else if (index == 0)
+            {
+                // Become first
+            }
+            else
+            {
+                // In the middle
+            }
 
-					using (var cmd = _dbHelper.SpawnCommand())
-					{
-						cmd.CommandText = "SELECT doc_publish_id, destination_file_name "
-							+ "FROM project_documents_published WHERE doc_id = @doc_id";
-						cmd.Parameters.AddWithValue("doc_id", request.search_project_document_id);
+            // Update document record
+            var calculatedRevision = "TODO";
 
-						var publishDocList = new List<Dictionary<string, string>>();
-						using (var reader = cmd.ExecuteReader())
-						{
-							while (reader.Read())
-							{
-								publishDocList.Add(new Dictionary<string, string>
-								{
-									{ "doc_publish_id", _dbHelper.SafeGetString(reader, 0) },
-									{ "destination_file_name", _dbHelper.SafeGetString(reader, 1) }
-								});
-							}
-						}
-						publishDocList.ForEach(publishDoc =>
-						{
-							var planFileName = _documentManagementService.GeneratePlanFileName(
-								_dbHelper,
-								(string)updatedDocDetails["project_id"],
-								request.doc_name ?? (string)updatedDocDetails["doc_name"],
-								request.doc_number ?? (string)updatedDocDetails["doc_number"],
-								updatedDocRevision);
-							if (publishDoc["destination_file_name"].Contains("comparison"))
-							{
-								planFileName += "_comparison";
-							}
-							planFileName += $".{publishDoc["destination_file_name"].Split(".").Last()}";
+            var docUpdateResult = Post(new ProjectDocumentUpdateRequest()
+            {
+                search_project_document_id = request.search_project_document_id,
+                display_name = request.display_name,
+                doc_name = request.doc_name,
+                doc_name_abbrv = request.doc_name_abbrv,
+                doc_number = request.doc_number,
+                doc_version = request.doc_version,
+                doc_discipline = request.doc_discipline,
+                doc_desc = request.doc_desc,
+                process_status = request.process_status,
+                status = request.status,
+                doc_revision = calculatedRevision,
+                doc_next_rev = index == matchedDocuments.Count ? "NULL" : matchedDocuments[index]["doc_id"],
+                doc_pagenumber = request.doc_pagenumber,
+                doc_sequence = request.doc_sequence,
+                doc_subproject = request.doc_subproject
+            }, true);
+        }
 
-							new PublishedDocumentManagementController().Post(new PublishedDocumentUpdateRequest()
-							{
-								search_doc_publish_id = publishDoc["doc_publish_id"],
-								destination_file_name = planFileName
-							});
-						});
-					}
-				}
-			}
-			else
-			{
-				// #400 - Is updated_doc the first revision?
-				var nextDocId = "";
-				if ((string.IsNullOrEmpty(request.doc_prev_rev) && !string.IsNullOrEmpty(request.doc_next_rev))
-					|| (string.IsNullOrEmpty(request.doc_prev_rev)
-							&& string.IsNullOrEmpty(request.doc_next_rev)
-							&& ((DateTime)updatedDocDetails["file_original_modified_datetime"]).CompareTo(
-							(DateTime)matchedDocuments[0]["file_original_modified_datetime"]) <= 0))
-				{
-					if (matchedDocuments.Count > 0)
-					{
-						matchedDocuments.Insert(0, updatedDocDetails);
-						nextDocId = (string)matchedDocuments[1]["doc_id"];
-
-						// #410 - Update Next_Revision Attributes
-						for (var index = 0; index < matchedDocuments.Count; index++)
-						{
-							var docRevision = _documentManagementService.GenerateDocRevision(
-								_dbHelper,
-								updatedDocCustomerId,
-								matchedDocuments[index],
-								matchedDocuments.Where((item, i) => i < index).ToList());
-							using (var cmd = _dbHelper.SpawnCommand())
-							{
-								cmd.CommandText = "UPDATE project_documents SET doc_revision = @doc_revision WHERE doc_id = @doc_id";
-								cmd.Parameters.AddWithValue("@doc_revision", docRevision);
-								cmd.Parameters.AddWithValue("@doc_id", matchedDocuments[index]["doc_id"]);
-								cmd.ExecuteNonQuery();
-							}
-
-							using (var cmd = _dbHelper.SpawnCommand())
-							{
-								cmd.CommandText = "SELECT doc_publish_id, destination_file_name "
-									+ "FROM project_documents_published WHERE doc_id = @doc_id";
-								cmd.Parameters.AddWithValue("doc_id", matchedDocuments[index]["doc_id"]);
-
-								var publishDocList = new List<Dictionary<string, string>>();
-								using (var reader = cmd.ExecuteReader())
-								{
-									while (reader.Read())
-									{
-										publishDocList.Add(new Dictionary<string, string>
-										{
-											{ "doc_publish_id", _dbHelper.SafeGetString(reader, 0) },
-											{ "destination_file_name", _dbHelper.SafeGetString(reader, 1) }
-										});
-									}
-								}
-								publishDocList.ForEach(publishDoc =>
-								{
-									var planFileName = _documentManagementService.GeneratePlanFileName(
-										_dbHelper,
-										(string)matchedDocuments[index]["project_id"],
-										request.doc_name ?? (string)updatedDocDetails["doc_name"],
-										request.doc_number ?? (string)updatedDocDetails["doc_number"],
-										docRevision);
-									if (publishDoc["destination_file_name"].Contains("comparison"))
-									{
-										planFileName += "_comparison";
-									}
-									planFileName += $".{publishDoc["destination_file_name"].Split(".").Last()}";
-
-									new PublishedDocumentManagementController().Post(new PublishedDocumentUpdateRequest()
-									{
-										search_doc_publish_id = publishDoc["doc_publish_id"],
-										destination_file_name = planFileName
-									});
-								});
-							}
-						}
-
-						// #420 - Create Next Revision Comparison File
-						var nextComparison = matchedDocuments[1];
-						nextComparison.Add("prev_doc_id", request.search_project_document_id);
-						await _lambdaClient.InvokeAsync(new InvokeRequest
-						{
-							FunctionName = "9414ComparisonGenerator-External",
-							Payload = Newtonsoft.Json.JsonConvert.SerializeObject(nextComparison)
-						});
-					}
-				}
-				else
-				{
-					var updatedDocPos = matchedDocuments.FindIndex(matchedDoc =>
-						((DateTime)updatedDocDetails["file_original_modified_datetime"]).CompareTo(
-							(DateTime)matchedDoc["file_original_modified_datetime"]) <= 0);
-					matchedDocuments.Insert(updatedDocPos, updatedDocDetails);
-					// #500 - Get the prev and next documents
-					// var prevDocId = (string)matchedDocuments[updatedDocPos - 1]["doc_id"];
-					// nextDocId = (string)matchedDocuments[updatedDocPos + 1]["doc_id"];
-
-					// #510 - Delete existing comparison
-					_documentManagementService.RemoveComparison(
-						_dbHelper, (string)matchedDocuments[updatedDocPos + 1]["doc_id"]);
-
-					// #520 - Update Document Attributes
-					using (var cmd = _dbHelper.SpawnCommand())
-					{
-						cmd.CommandText = "UPDATE project_documents SET doc_next_rev=@doc_next_rev where doc_id=@doc_id";
-						cmd.Parameters.AddWithValue("@doc_next_rev", request.search_project_document_id);
-						cmd.Parameters.AddWithValue("@doc_id", (string)matchedDocuments[updatedDocPos - 1]["doc_id"]);
-						cmd.ExecuteNonQuery();
-					}
-
-					for (var index520 = updatedDocPos; index520 < matchedDocuments.Count; index520++)
-					{
-						var docRevision520 = _documentManagementService.GenerateDocRevision(
-							_dbHelper, updatedDocCustomerId, updatedDocDetails, matchedDocuments.GetRange(0, index520));
-						using (var cmd = _dbHelper.SpawnCommand())
-						{
-							cmd.CommandText = "UPDATE project_documents "
-								+ "SET doc_next_rev = @doc_next_rev, doc_revision = @doc_revision where doc_id=@doc_id";
-							cmd.Parameters.AddWithValue("@doc_next_rev",
-								index520 == matchedDocuments.Count - 1 ? "" : (string)matchedDocuments[index520 + 1]["doc_id"]);
-							cmd.Parameters.AddWithValue("@doc_id", (string)matchedDocuments[index520]["doc_id"]);
-							cmd.Parameters.AddWithValue("@doc_revision", docRevision520);
-							cmd.ExecuteNonQuery();
-						}
-
-						using (var cmd = _dbHelper.SpawnCommand())
-						{
-							cmd.CommandText = "SELECT doc_publish_id, destination_file_name "
-								+ "FROM project_documents_published WHERE doc_id = @doc_id";
-							cmd.Parameters.AddWithValue("doc_id", matchedDocuments[index520]["doc_id"]);
-
-							var publishDocList = new List<Dictionary<string, string>>();
-							using (var reader = cmd.ExecuteReader())
-							{
-								while (reader.Read())
-								{
-									publishDocList.Add(new Dictionary<string, string>
-										{
-											{ "doc_publish_id", _dbHelper.SafeGetString(reader, 0) },
-											{ "destination_file_name", _dbHelper.SafeGetString(reader, 1) }
-										});
-								}
-							}
-							publishDocList.ForEach(publishDoc =>
-							{
-								var planFileName = _documentManagementService.GeneratePlanFileName(
-									_dbHelper,
-									(string)matchedDocuments[index520]["project_id"],
-									request.doc_name ?? (string)updatedDocDetails["doc_name"],
-									request.doc_number ?? (string)updatedDocDetails["doc_number"],
-									docRevision520);
-								if (publishDoc["destination_file_name"].Contains("comparison"))
-								{
-									planFileName += "_comparison";
-								}
-								planFileName += $".{publishDoc["destination_file_name"].Split(".").Last()}";
-
-								new PublishedDocumentManagementController().Post(new PublishedDocumentUpdateRequest()
-								{
-									search_doc_publish_id = publishDoc["doc_publish_id"],
-									destination_file_name = planFileName
-								});
-							});
-						}
-					}
-
-					// #530 - Create previous rev comparison
-					var docComparison1 = matchedDocuments[updatedDocPos];
-					docComparison1.Add("prev_doc_id", matchedDocuments[updatedDocPos - 1]["doc_id"]);
-					await _lambdaClient.InvokeAsync(new InvokeRequest
-					{
-						FunctionName = "9414ComparisonGenerator-External",
-						Payload = Newtonsoft.Json.JsonConvert.SerializeObject(docComparison1)
-					});
-
-					// #420 - Create next revision comparison
-					var nextComparison1 = matchedDocuments[updatedDocPos + 1];
-					nextComparison1.Add("prev_doc_id", request.search_project_document_id);
-					await _lambdaClient.InvokeAsync(new InvokeRequest
-					{
-						FunctionName = "9414ComparisonGenerator-External",
-						Payload = Newtonsoft.Json.JsonConvert.SerializeObject(nextComparison1)
-					});
-				}
-			}
-		}
-	}
+        private async Task __ProcessDocumentRevisionAttributesChange(KeyAttributeUpdateRequest request)
+        {
+            // TODO
+        }
+    }
 }

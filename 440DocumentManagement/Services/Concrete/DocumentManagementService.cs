@@ -208,7 +208,9 @@ namespace _440DocumentManagement.Services.Concrete
 		{
 			using (var cmd = dbHelper.SpawnCommand())
 			{
-				cmd.CommandText = "SELECT project_documents.doc_id, doc_revision, files.file_key, files.bucket_name FROM project_documents "
+				cmd.CommandText = "SELECT project_documents.doc_id, doc_revision, files.file_key, files.bucket_name, "
+                        + "files.file_original_modified_datetime, files.parent_original_modified_datetime, project_documents.create_datetime "
+                        + "FROM project_documents "
 						+ "LEFT JOIN document_files ON project_documents.doc_id=document_files.doc_id "
 						+ "LEFT JOIN files ON document_files.file_id=files.file_id "
 						+ $"WHERE project_documents.doc_id='{docId}' AND files.file_type='source_system_original'";
@@ -217,13 +219,16 @@ namespace _440DocumentManagement.Services.Concrete
 				{
 					if (reader.Read())
 					{
-						return new Dictionary<string, string>
-						{
-							["doc_id"] = dbHelper.SafeGetString(reader, 0),
-							["doc_revision"] = dbHelper.SafeGetString(reader, 1),
-							["file_key"] = dbHelper.SafeGetString(reader, 2),
-							["bucket_name"] = dbHelper.SafeGetString(reader, 3),
-						};
+                        return new Dictionary<string, string>
+                        {
+                            ["doc_id"] = dbHelper.SafeGetString(reader, 0),
+                            ["doc_revision"] = dbHelper.SafeGetString(reader, 1),
+                            ["file_key"] = dbHelper.SafeGetString(reader, 2),
+                            ["bucket_name"] = dbHelper.SafeGetString(reader, 3),
+                            ["file_original_modified_datetime"] = dbHelper.SafeGetDatetimeString(reader, 4),
+                            ["parent_original_modified_datetime"] = dbHelper.SafeGetDatetimeString(reader, 5),
+                            ["create_datetime"] = dbHelper.SafeGetDatetimeString(reader, 6),
+                        };
 					}
 					else
 					{
@@ -473,18 +478,15 @@ namespace _440DocumentManagement.Services.Concrete
 			}
 		}
 
-		public List<Dictionary<string, object>> RetrieveMatchedDocumentsWithKeyAttributes(
+		public List<Dictionary<string, string>> RetrieveMatchedDocumentsWithKeyAttributes(
 			DatabaseHelper dbHelper,
-			string chainDocId,    // Document ID in the revision chain (next_rev or prev_rev)
 			string docId,			// Document ID for the updated document
+            string projectId,       // Project ID that document belongs to
 			string docNumber,
 			string docPageNumber,
 			string docSubProject)
 		{
-			var updatedDocFileOriginalModifiedDateTime = DateTime.UtcNow;
-
-			if ((string.IsNullOrEmpty(chainDocId) && string.IsNullOrEmpty(docId))
-				|| (!string.IsNullOrEmpty(chainDocId) && !string.IsNullOrEmpty(docId)))
+			if (string.IsNullOrEmpty(docId))
 			{
 				throw new Exception("Invalid request on retrieving matched documents with key attributes");
 			}
@@ -494,42 +496,20 @@ namespace _440DocumentManagement.Services.Concrete
 			{
 				cmd.CommandText = "SELECT doc_number, doc_pagenumber, doc_subproject "
 					+ "FROM project_documents WHERE doc_id = @doc_id";
-				if (string.IsNullOrEmpty(chainDocId))
-				{
-					cmd.Parameters.AddWithValue("@doc_id", docId);
-				}
-				else
-				{
-					cmd.Parameters.AddWithValue("@doc_id", chainDocId);
-				}
+
+				cmd.Parameters.AddWithValue("@doc_id", docId);
 				
 				using (var reader = cmd.ExecuteReader())
 				{
 					if (reader.Read())
 					{
-						if (string.IsNullOrEmpty(chainDocId))
-						{
-							docNumber = docNumber ?? dbHelper.SafeGetString(reader, 0);
-							docPageNumber = docPageNumber ?? dbHelper.SafeGetString(reader, 1);
-							docSubProject = docSubProject ?? dbHelper.SafeGetString(reader, 2);
-						}
-						else
-						{
-							docNumber = dbHelper.SafeGetString(reader, 0);
-							docPageNumber = dbHelper.SafeGetString(reader, 1);
-							docSubProject = dbHelper.SafeGetString(reader, 2);
-						}
+						docNumber = docNumber ?? dbHelper.SafeGetString(reader, 0);
+						docPageNumber = docPageNumber ?? dbHelper.SafeGetString(reader, 1);
+						docSubProject = docSubProject ?? dbHelper.SafeGetString(reader, 2);
 					}
 					else
 					{
-						if (!string.IsNullOrEmpty(docId))
-						{
-							throw new Exception($"Invalid document id: {docId}");
-						}
-						if (!string.IsNullOrEmpty(chainDocId))
-						{
-							throw new Exception($"Invalid document id: {chainDocId}");
-						}
+						throw new Exception($"Invalid document id: {docId}");
 					}
 				}
 			}
@@ -537,63 +517,33 @@ namespace _440DocumentManagement.Services.Concrete
 			// Get matched project document with the key attributes
 			using (var cmd = dbHelper.SpawnCommand())
 			{
-				string commandText = "SELECT "
-					+ "project_documents.doc_id, project_documents.doc_revision, "
-					+ "files.file_original_modified_datetime, files.bucket_name, files.file_original_filename, "
-					+ "project_documents.submission_datetime, project_submissions.project_id, "
-					+ "project_submissions.submitter_email, project_submissions.user_timezone, "
-					+ "project_submissions.submission_name, project_submissions.project_submission_id, "
-					+ "project_submissions.project_name "
-					+ "FROM project_documents "
-					+ "LEFT JOIN document_files ON document_files.doc_id = project_documents.doc_id "
-					+ "LEFT JOIN files on files.file_id = document_files.file_id "
-					+ "LEFT JOIN project_submissions ON project_submissions.project_submission_id = project_documents.submission_id "
-					+ "WHERE project_documents.doc_id <> @doc_id "
-					+ "AND files.file_type = 'source_system_original' ";
+                string commandText = $"SELECT doc_id FROM project_documents WHERE project_id='{projectId}' ";
 				commandText += string.IsNullOrEmpty(docNumber)
-					? "AND project_documents.doc_number IS NULL "
-					: $"AND project_documents.doc_number = '{docNumber}' ";
+					? "AND (doc_number IS NULL OR doc_number='') "
+					: $"AND doc_number = '{docNumber}' ";
 				commandText += string.IsNullOrEmpty(docPageNumber)
-					? "AND project_documents.doc_pagenumber IS NULL "
-					: $"AND project_documents.doc_pagenumber = '{docPageNumber}' ";
+					? "AND (doc_pagenumber IS NULL OR doc_pagenumber='') "
+                    : $"AND doc_pagenumber = '{docPageNumber}' ";
 				commandText += string.IsNullOrEmpty(docSubProject)
-					? "AND project_documents.doc_subproject IS NULL "
-					: $"AND project_documents.doc_subproject = '{docSubProject}' ";
+					? "AND (doc_subproject IS NULL OR doc_subproject='') "
+                    : $"AND doc_subproject = '{docSubProject}' ";
 
 				cmd.CommandText = commandText;
-				cmd.Parameters.AddWithValue("@doc_id", docId);
 
-				var resultList = new List<Dictionary<string, object>>();
 				using (var reader = cmd.ExecuteReader())
 				{
-					while (reader.Read())
+					if (reader.Read())
 					{
-						resultList.Add(new Dictionary<string, object>()
-						{
-							{ "doc_id", dbHelper.SafeGetString(reader, 0) },
-							{ "doc_revision", dbHelper.SafeGetString(reader, 1) },
-							{
-								"file_original_modified_datetime",
-								DateTimeHelper.ConvertToUTCDateTime(dbHelper.SafeGetDatetimeString(reader, 2))
-							},
-							{ "bucket_name", dbHelper.SafeGetString(reader, 3) },
-							{ "file_original_filename", dbHelper.SafeGetString(reader, 4) },
-							{ "submission_datetime", dbHelper.SafeGetDatetimeString(reader, 5) },
-							{ "project_id", dbHelper.SafeGetString(reader, 6) },
-							{ "submitter_email", dbHelper.SafeGetString(reader, 7) },
-							{ "user_timezone", dbHelper.SafeGetString(reader, 8) },
-							{ "submission_name", dbHelper.SafeGetString(reader, 9) },
-							{ "submission_id", dbHelper.SafeGetString(reader, 10) },
-							{ "project_name", dbHelper.SafeGetString(reader, 11) }
-						});
+                        var locatedDocId = reader["doc_id"] as string;
+                        var revisionChain = GetDocumentRevisions(dbHelper, locatedDocId);
+
+                        return revisionChain;
 					}
+                    else
+                    {
+                        return new List<Dictionary<string, string>> { };
+                    }
 				}
-
-				resultList.Sort((first, second) =>
-					((DateTime)first["file_original_modified_datetime"]).CompareTo(
-						(DateTime)second["file_original_modified_datetime"]));
-
-				return resultList;
 			}
 		}
 
@@ -647,5 +597,34 @@ namespace _440DocumentManagement.Services.Concrete
 
             return logs;
         }
-	}
+
+        public Dictionary<string, string> GetInfoForKeyAttributeUpdate(DatabaseHelper dbHelper, string docId)
+        {
+            using (var cmd = dbHelper.SpawnCommand())
+            {
+                cmd.CommandText = "SELECT project_documents.project_id, project_documents.create_datetime,  "
+                    + "files.file_original_modified_datetime, files.parent_original_modified_datetime "
+                    + "FROM project_documents "
+                    + $"WHERE project_documents.doc_id='{docId}'";
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        return new Dictionary<string, string>
+                        {
+                            { "project_id", dbHelper.SafeGetString(reader, 0) },
+                            { "create_datetime", dbHelper.SafeGetDatetimeString(reader, 1) },
+                            { "file_original_modified_datetime", dbHelper.SafeGetDatetimeString(reader, 2) },
+                            { "parent_original_modified_datetime", dbHelper.SafeGetDatetimeString(reader, 3) },
+                        };
+                    }
+                    else
+                    {
+                        return null;
+                    }
+                }
+            }
+        }
+    }
 }
