@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 namespace _440DocumentManagement.Controllers
 {
 	[Produces("application/json")]
-	[Route("api/AnalyticDatasources")]
+	[Route("api")]
 	[OpenApiTag("Analytic Datasources Management")]
 	public class AnalyticDatasourcesManagementController : Controller
 	{

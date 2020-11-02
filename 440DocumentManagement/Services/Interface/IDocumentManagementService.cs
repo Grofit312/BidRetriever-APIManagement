@@ -16,7 +16,8 @@ namespace _440DocumentManagement.Services.Interface
 		string GetPreviousRevisionDocId(DatabaseHelper dbHelper, string currentDocId);
 		void RemoveComparison(DatabaseHelper dbHelper, string docId);
 		Dictionary<string, string> RetrieveDocument(DatabaseHelper dbHelper, string docId);
-		List<Dictionary<string, object>> RetrieveMatchedDocumentsWithKeyAttributes(DatabaseHelper dbHelper, string chainDocId, string docId, string docNumber, string docPageNumber, string docSubProject);
+		List<Dictionary<string, string>> RetrieveMatchedDocumentsWithKeyAttributes(DatabaseHelper dbHelper, string docId, string projectId, string docNumber, string docPageNumber, string docSubProject);
         List<Dictionary<string, object>> FindFolderTransactionLogs(DatabaseHelper dbHelper, string docId);
+        Dictionary<string, string> GetInfoForKeyAttributeUpdate(DatabaseHelper dbHelper, string docId);
     }
 }
