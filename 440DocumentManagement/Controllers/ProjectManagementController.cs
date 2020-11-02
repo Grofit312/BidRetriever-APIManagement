@@ -1717,8 +1717,12 @@ namespace _440DocumentManagement.Controllers
 
                             if (detailLevel == "admin")
                             {
+                                result.Add("project_admin_user_id", _dbHelper.SafeGetString(reader, 21));
+                                result.Add("project_admin_user_email", _dbHelper.SafeGetString(reader, 43));
+                                // Note: Should deprecate those fields - to be consistent with API design
                                 result.Add("user_id", _dbHelper.SafeGetString(reader, 21));
                                 result.Add("user_email", _dbHelper.SafeGetString(reader, 43));
+                                // ***
                                 result.Add("customer_id", _dbHelper.SafeGetString(reader, 22));
                                 result.Add("create_user_id", _dbHelper.SafeGetString(reader, 23));
                                 result.Add("edit_user_id", _dbHelper.SafeGetString(reader, 24));
