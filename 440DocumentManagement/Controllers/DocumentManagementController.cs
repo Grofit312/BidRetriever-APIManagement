@@ -638,6 +638,7 @@ namespace _440DocumentManagement.Controllers
 							var folderPath = _dbHelper.SafeGetString(reader, 10);
 							var submissionName = _dbHelper.SafeGetString(reader, 12);
 
+                            /*
 							if (!string.IsNullOrEmpty(submissionName) && folderPath.StartsWith(submissionName))
 							{
 								folderPath = folderPath.Replace(submissionName, "").TrimStart('/');
@@ -646,6 +647,7 @@ namespace _440DocumentManagement.Controllers
 							{
 								folderPath = Regex.Replace(folderPath, @"^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}", "").TrimStart('/');
 							}
+                            */
 
 							record["folder_path"] = folderPath;
 
