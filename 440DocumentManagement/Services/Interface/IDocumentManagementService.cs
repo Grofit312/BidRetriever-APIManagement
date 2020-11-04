@@ -6,7 +6,7 @@ namespace _440DocumentManagement.Services.Interface
 	public interface IDocumentManagementService
 	{
 		void CreateFolderTransactionLog(DatabaseHelper dbHelper, Dictionary<string, object> data, string operationType);
-		string GenerateDocRevision(DatabaseHelper dbHelper, string customerId, Dictionary<string, object> currentDoc, List<Dictionary<string, object>> documents);
+		string GenerateDocRevision(DatabaseHelper dbHelper, string customerId, Dictionary<string, object> currentDoc, List<Dictionary<string, string>> documents);
 		string GeneratePlanFileName(DatabaseHelper dbHelper, string projectId, string docName, string docNumber, string docRevision);
 		Dictionary<string, string> GetDocumentComparison(DatabaseHelper dbHelper, string docId, string docRevision);
 		List<Dictionary<string, string>> GetDocumentComparisons(DatabaseHelper dbHelper, List<Dictionary<string, string>> docRevisions);
@@ -19,5 +19,6 @@ namespace _440DocumentManagement.Services.Interface
 		List<Dictionary<string, string>> RetrieveMatchedDocumentsWithKeyAttributes(DatabaseHelper dbHelper, string docId, string projectId, string docNumber, string docPageNumber, string docSubProject);
         List<Dictionary<string, object>> FindFolderTransactionLogs(DatabaseHelper dbHelper, string docId);
         Dictionary<string, string> GetInfoForKeyAttributeUpdate(DatabaseHelper dbHelper, string docId);
+        string CalculateDocRevisionForSubmissionDate(DatabaseHelper dbHelper, string submission_datetime, string timezone, List<Dictionary<string, string>> documents);
     }
 }

@@ -290,6 +290,7 @@ namespace _440DocumentManagement.Controllers
                 using (var cmd = _dbHelper.SpawnCommand())
                 {
                     var destinationAccessToken = "";
+                    var destinationAccessToken2 = "";
                     var destinationUrl = "";
                     var destinationRootPath = "";
                     var destinationTypeId = "";
@@ -305,8 +306,9 @@ namespace _440DocumentManagement.Controllers
                       + "customer_destinations.destination_root_path, customer_destinations.destination_type_id, "
                       + "customer_destinations.destination_username, customer_destinations.destination_password, "
                       + "users.user_email, users.user_lastname, customers.customer_name,"
-                                  + "customer_destinations.destination_id, customers.customer_id "
-                                  + "FROM users LEFT JOIN customers ON users.customer_id=customers.customer_id "
+                      + "customer_destinations.destination_id, customers.customer_id, "
+                      + "customer_destinations.destination_access_token_2 "
+                      + "FROM users LEFT JOIN customers ON users.customer_id=customers.customer_id "
                       + "LEFT JOIN customer_destinations on customer_destinations.customer_id=COALESCE(customers.customer_id, 'TrialUser') "
                       + "WHERE users.user_id='" + project.project_admin_user_id + "'";
 
@@ -320,6 +322,7 @@ namespace _440DocumentManagement.Controllers
                             destinationSetting = new Dictionary<string, string>
                             {
                                 { "destination_access_token", _dbHelper.SafeGetString(reader, 0) },
+                                { "destination_access_token_2", _dbHelper.SafeGetString(reader, 11) },
                                 { "destination_url", _dbHelper.SafeGetString(reader, 1) },
                                 { "destination_root_path", _dbHelper.SafeGetString(reader, 2) },
                                 { "destination_type_id", _dbHelper.SafeGetString(reader, 3) },
@@ -336,6 +339,7 @@ namespace _440DocumentManagement.Controllers
                     }
 
                     destinationAccessToken = destinationSetting["destination_access_token"];
+                    destinationAccessToken2 = destinationSetting["destination_access_token_2"];
                     destinationUrl = destinationSetting["destination_url"];
                     destinationRootPath = destinationSetting["destination_root_path"];
                     destinationTypeId = destinationSetting["destination_type_id"];
@@ -448,6 +452,17 @@ namespace _440DocumentManagement.Controllers
                             project_id = projectId,
                             setting_value = destinationAccessToken,
                             setting_name = "PROJECT_DESTINATION_TOKEN",
+                            setting_value_data_type = "string",
+                        });
+                    }
+
+                    if (destinationAccessToken2 != string.Empty)
+                    {
+                        new ProjectSettingManagementController().Post(new ProjectSetting
+                        {
+                            project_id = projectId,
+                            setting_value = destinationAccessToken2,
+                            setting_name = "PROJECT_DESTINATION_TOKEN_2",
                             setting_value_data_type = "string",
                         });
                     }
@@ -1717,8 +1732,12 @@ namespace _440DocumentManagement.Controllers
 
                             if (detailLevel == "admin")
                             {
+                                result.Add("project_admin_user_id", _dbHelper.SafeGetString(reader, 21));
+                                result.Add("project_admin_user_email", _dbHelper.SafeGetString(reader, 43));
+                                // Note: Should deprecate those fields - to be consistent with API design
                                 result.Add("user_id", _dbHelper.SafeGetString(reader, 21));
                                 result.Add("user_email", _dbHelper.SafeGetString(reader, 43));
+                                // ***
                                 result.Add("customer_id", _dbHelper.SafeGetString(reader, 22));
                                 result.Add("create_user_id", _dbHelper.SafeGetString(reader, 23));
                                 result.Add("edit_user_id", _dbHelper.SafeGetString(reader, 24));

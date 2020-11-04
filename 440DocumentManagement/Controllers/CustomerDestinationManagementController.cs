@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using _440DocumentManagement.Helpers;
 using _440DocumentManagement.Models.DestinationSystem;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSwag.Annotations;
 
@@ -58,7 +57,8 @@ namespace _440DocumentManagement.Controllers
 							// update existing customer destination
 							cmd.CommandText = "UPDATE customer_destinations SET "
 									+ "destination_access_token = COALESCE(@destination_access_token, destination_access_token), "
-									+ "customer_id = COALESCE(@customer_id, customer_id), "
+                                    + "destination_access_token_2 = COALESCE(@destination_access_token_2, destination_access_token_2), "
+                                    + "customer_id = COALESCE(@customer_id, customer_id), "
 									+ "destination_name = COALESCE(@destination_name, destination_name), "
 									+ "destination_password = COALESCE(@destination_password, destination_password), "
 									+ "destination_root_path = COALESCE(@destination_root_path, destination_root_path), "
@@ -73,7 +73,10 @@ namespace _440DocumentManagement.Controllers
 							cmd.Parameters.AddWithValue(
 								"destination_access_token",
 								(object)customerDestination.destination_access_token ?? DBNull.Value);
-							cmd.Parameters.AddWithValue(
+                            cmd.Parameters.AddWithValue(
+                                "destination_access_token_2",
+                                (object)customerDestination.destination_access_token_2 ?? DBNull.Value);
+                            cmd.Parameters.AddWithValue(
 								"customer_id",
 								(object)customerDestination.customer_id ?? DBNull.Value);
 							cmd.Parameters.AddWithValue(
@@ -112,16 +115,17 @@ namespace _440DocumentManagement.Controllers
 
 					// create new one
 					cmd.CommandText = "INSERT INTO customer_destinations "
-													+ "(destination_id, destination_access_token, customer_id, destination_name, destination_password, "
-													+ "destination_root_path, destination_type_id, destination_type_name, destination_url, destination_username, status, "
+													+ "(destination_id, destination_access_token, destination_access_token_2, customer_id, destination_name, destination_password, "
+                                                    + "destination_root_path, destination_type_id, destination_type_name, destination_url, destination_username, status, "
 													+ "create_datetime, edit_datetime) "
-													+ "VALUES(@destination_id, @destination_access_token, @customer_id, @destination_name, @destination_password, "
-													+ "@destination_root_path, @destination_type_id, @destination_type_name, @destination_url, @destination_username, @status, "
+													+ "VALUES(@destination_id, @destination_access_token, @destination_access_token_2, @customer_id, @destination_name, @destination_password, "
+                                                    + "@destination_root_path, @destination_type_id, @destination_type_name, @destination_url, @destination_username, @status, "
 													+ "@create_datetime, @edit_datetime)";
 
 					cmd.Parameters.AddWithValue("destination_id", destinationId);
 					cmd.Parameters.AddWithValue("destination_access_token", customerDestination.destination_access_token ?? "");
-					cmd.Parameters.AddWithValue("customer_id", customerDestination.customer_id);
+                    cmd.Parameters.AddWithValue("destination_access_token_2", customerDestination.destination_access_token_2 ?? "");
+                    cmd.Parameters.AddWithValue("customer_id", customerDestination.customer_id);
 					cmd.Parameters.AddWithValue("destination_name", customerDestination.destination_name ?? "");
 					cmd.Parameters.AddWithValue("destination_password", customerDestination.destination_password ?? "");
 					cmd.Parameters.AddWithValue("destination_root_path", customerDestination.destination_root_path ?? "");
@@ -176,7 +180,7 @@ namespace _440DocumentManagement.Controllers
 					cmd.CommandText = "SELECT customer_id, destination_access_token, destination_id, destination_name, "
 													+ "destination_password, destination_root_path, destination_type_name, destination_username, destination_url,"
 													+ "destination_type_id, create_datetime, edit_datetime, status, "
-													+ "total_access_count, create_user_id, edit_user_id "
+													+ "total_access_count, create_user_id, edit_user_id, destination_access_token_2 "
 													+ "FROM customer_destinations WHERE customer_id='" + customerId + "' AND status='active'";
 
 					using (var reader = cmd.ExecuteReader())
@@ -188,6 +192,7 @@ namespace _440DocumentManagement.Controllers
 							{
 								{ "customer_id", _dbHelper.SafeGetString(reader, 0) },
 								{ "destination_access_token", _dbHelper.SafeGetString(reader, 1) },
+                                { "destination_access_token_2", _dbHelper.SafeGetString(reader, 16) },
 								{ "destination_id", _dbHelper.SafeGetString(reader, 2) },
 								{ "destination_name", _dbHelper.SafeGetString(reader, 3) },
 								{ "destination_password", _dbHelper.SafeGetString(reader, 4) },
@@ -195,7 +200,6 @@ namespace _440DocumentManagement.Controllers
 								{ "destination_type_name", _dbHelper.SafeGetString(reader, 6) },
 								{ "destination_username", _dbHelper.SafeGetString(reader, 7) },
                                 { "destination_url", _dbHelper.SafeGetString(reader, 8) },
-
                             };
 
 							if (detailLevel == "all" || detailLevel == "admin")
@@ -261,8 +265,8 @@ namespace _440DocumentManagement.Controllers
 					cmd.CommandText = "SELECT create_datetime, customer_id, destination_access_token, destination_id, "
 													+ "destination_name, destination_password, destination_root_path, destination_type_id, "
 													+ "destination_type_name, destination_username, edit_datetime, status, "
-													+ "total_access_count, create_user_id, edit_user_id "
-													+ "FROM customer_destinations WHERE "
+													+ "total_access_count, create_user_id, edit_user_id, destination_access_token_2 "
+                                                    + "FROM customer_destinations WHERE "
 													+ "destination_id='" + request.destination_id + "' AND status='active'";
 
 					var reader = cmd.ExecuteReader();
@@ -274,6 +278,7 @@ namespace _440DocumentManagement.Controllers
 							{ "create_datetime", _dbHelper.SafeGetDatetimeString(reader, 0) },
 							{ "customer_id", _dbHelper.SafeGetString(reader, 1) },
 							{ "destination_access_token", _dbHelper.SafeGetString(reader, 2) },
+                            { "destination_access_token_2", _dbHelper.SafeGetString(reader, 15) },
 							{ "destination_id", _dbHelper.SafeGetString(reader, 3) },
 							{ "destination_name", _dbHelper.SafeGetString(reader, 4) },
 							{ "destination_password", _dbHelper.SafeGetString(reader, 5) },
@@ -336,7 +341,8 @@ namespace _440DocumentManagement.Controllers
 				{
 					cmd.CommandText = "UPDATE customer_destinations SET "
 													+ "destination_access_token = COALESCE(@destination_access_token, destination_access_token), "
-													+ "destination_name = COALESCE(@destination_name, destination_name), "
+                                                    + "destination_access_token_2 = COALESCE(@destination_access_token_2, destination_access_token_2), "
+                                                    + "destination_name = COALESCE(@destination_name, destination_name), "
 													+ "destination_password = COALESCE(@destination_password, destination_password), "
 													+ "destination_root_path = COALESCE(@destination_root_path, destination_root_path), "
 													+ "destination_type_id = COALESCE(@destination_type_id, destination_type_id), "
@@ -351,7 +357,10 @@ namespace _440DocumentManagement.Controllers
 					cmd.Parameters.AddWithValue(
 						"destination_access_token",
 						(object)request.destination_access_token ?? DBNull.Value);
-					cmd.Parameters.AddWithValue(
+                    cmd.Parameters.AddWithValue(
+                        "destination_access_token_2",
+                        (object)request.destination_access_token_2 ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue(
 						"destination_name",
 						(object)request.destination_name ?? DBNull.Value);
 					cmd.Parameters.AddWithValue(

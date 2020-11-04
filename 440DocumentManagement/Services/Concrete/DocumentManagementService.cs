@@ -48,7 +48,7 @@ namespace _440DocumentManagement.Services.Concrete
 			DatabaseHelper dbHelper,
 			string customerId,
 			Dictionary<string, object> currentDoc,
-			List<Dictionary<string, object>> documents)
+			List<Dictionary<string, string>> documents)
 		{
 			var isCounterBasedRevision = false;
             var timezone = "eastern";
@@ -95,31 +95,7 @@ namespace _440DocumentManagement.Services.Concrete
 			}
 			else
 			{
-                var submissionDatetime = DateTimeHelper.ConvertToUserTimezone((string)currentDoc["submission_datetime"], timezone);
-                var timestampWithoutHM = submissionDatetime.ToString("yyyy-MM-dd");
-                var timestampWithHM = submissionDatetime.ToString("yyyy-MM-dd_HH-mm");
-
-                if (documents.Count == 0)
-                {
-                    updatedDocRevision = timestampWithoutHM;
-                }
-                else
-                {
-                    var numberOfPreviousDocsInSameDay = documents.Where(prevDoc =>
-                    {
-                        var prevDocSubmissionDatetime = DateTimeHelper.ConvertToUserTimezone((string)prevDoc["submission_datetime"], timezone);
-                        return prevDocSubmissionDatetime.ToString("yyyy-MM-dd") == timestampWithoutHM;
-                    }).ToList().Count;
-                    if (numberOfPreviousDocsInSameDay == 0)
-                    {
-                        updatedDocRevision = timestampWithoutHM;
-                    }
-                    else
-                    {
-                        updatedDocRevision = timestampWithoutHM;
-                        updatedDocRevision += " - " + numberOfPreviousDocsInSameDay.ToString().PadLeft(2, '0');
-                    }
-                }
+                updatedDocRevision = CalculateDocRevisionForSubmissionDate(dbHelper, (string)currentDoc["submission_datetime"], timezone, documents);
 			}
 
 			return updatedDocRevision;
@@ -209,7 +185,8 @@ namespace _440DocumentManagement.Services.Concrete
 			using (var cmd = dbHelper.SpawnCommand())
 			{
 				cmd.CommandText = "SELECT project_documents.doc_id, doc_revision, files.file_key, files.bucket_name, "
-                        + "files.file_original_modified_datetime, files.parent_original_modified_datetime, project_documents.create_datetime "
+                        + "files.file_original_modified_datetime, files.parent_original_modified_datetime, project_documents.create_datetime, "
+                        + "project_documents.submission_datetime "
                         + "FROM project_documents "
 						+ "LEFT JOIN document_files ON project_documents.doc_id=document_files.doc_id "
 						+ "LEFT JOIN files ON document_files.file_id=files.file_id "
@@ -228,6 +205,7 @@ namespace _440DocumentManagement.Services.Concrete
                             ["file_original_modified_datetime"] = dbHelper.SafeGetDatetimeString(reader, 4),
                             ["parent_original_modified_datetime"] = dbHelper.SafeGetDatetimeString(reader, 5),
                             ["create_datetime"] = dbHelper.SafeGetDatetimeString(reader, 6),
+                            ["submission_datetime"] = dbHelper.SafeGetDatetimeString(reader, 7),
                         };
 					}
 					else
@@ -600,24 +578,28 @@ namespace _440DocumentManagement.Services.Concrete
 
         public Dictionary<string, string> GetInfoForKeyAttributeUpdate(DatabaseHelper dbHelper, string docId)
         {
+            var info = new Dictionary<string, string> { };
+
             using (var cmd = dbHelper.SpawnCommand())
             {
                 cmd.CommandText = "SELECT project_documents.project_id, project_documents.create_datetime,  "
-                    + "files.file_original_modified_datetime, files.parent_original_modified_datetime "
+                    + "files.file_original_modified_datetime, files.parent_original_modified_datetime, "
+                    + "project_documents.submission_datetime, customers.customer_timezone "
                     + "FROM project_documents "
+                    + "LEFT JOIN projects ON projects.project_id=project_documents.project_id "
+                    + "LEFT JOIN customers ON projects.project_customer_id=customers.customer_id "
                     + $"WHERE project_documents.doc_id='{docId}'";
 
                 using (var reader = cmd.ExecuteReader())
                 {
                     if (reader.Read())
                     {
-                        return new Dictionary<string, string>
-                        {
-                            { "project_id", dbHelper.SafeGetString(reader, 0) },
-                            { "create_datetime", dbHelper.SafeGetDatetimeString(reader, 1) },
-                            { "file_original_modified_datetime", dbHelper.SafeGetDatetimeString(reader, 2) },
-                            { "parent_original_modified_datetime", dbHelper.SafeGetDatetimeString(reader, 3) },
-                        };
+                        info["project_id"] = dbHelper.SafeGetString(reader, 0);
+                        info["create_datetime"] = dbHelper.SafeGetDatetimeString(reader, 1);
+                        info["file_original_modified_datetime"] = dbHelper.SafeGetDatetimeString(reader, 2);
+                        info["parent_original_modified_datetime"] = dbHelper.SafeGetDatetimeString(reader, 3);
+                        info["submission_datetime"] = dbHelper.SafeGetDatetimeString(reader, 4);
+                        info["customer_timezone"] = dbHelper.SafeGetString(reader, 5);
                     }
                     else
                     {
@@ -625,6 +607,63 @@ namespace _440DocumentManagement.Services.Concrete
                     }
                 }
             }
+
+            var revisioningType = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_REVISIONING_TYPE");
+
+            info["revisioning_type"] = string.IsNullOrEmpty(revisioningType) ? "Submission Date" : revisioningType;
+
+            return info;
+        }
+
+        public string GetProjectSetting(DatabaseHelper dbHelper, string project_id, string setting_id)
+        {
+            using (var cmd = dbHelper.SpawnCommand())
+            {
+                cmd.CommandText = "SELECT setting_value FROM project_settings "
+                    + $"WHERE project_id='{project_id}' AND setting_name='{setting_id}'";
+
+                using (var reader = cmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        return dbHelper.SafeGetString(reader, 0);
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        public string CalculateDocRevisionForSubmissionDate(DatabaseHelper dbHelper, string submission_datetime, string timezone, List<Dictionary<string, string>> documents)
+        {
+            var docRevision = "";
+            var submissionDatetime = DateTimeHelper.ConvertToUserTimezone(submission_datetime, timezone);
+            var timestampWithoutHM = submissionDatetime.ToString("yyyy-MM-dd");
+            var timestampWithHM = submissionDatetime.ToString("yyyy-MM-dd_HH-mm");
+
+            if (documents.Count == 0)
+            {
+                docRevision = timestampWithoutHM;
+            }
+            else
+            {
+                var numberOfPreviousDocsInSameDay = documents.Where(prevDoc =>
+                {
+                    var prevDocSubmissionDatetime = DateTimeHelper.ConvertToUserTimezone((string)prevDoc["submission_datetime"], timezone);
+                    return prevDocSubmissionDatetime.ToString("yyyy-MM-dd") == timestampWithoutHM;
+                }).ToList().Count;
+                if (numberOfPreviousDocsInSameDay == 0)
+                {
+                    docRevision = timestampWithoutHM;
+                }
+                else
+                {
+                    docRevision = timestampWithoutHM;
+                    docRevision += " - " + numberOfPreviousDocsInSameDay.ToString().PadLeft(2, '0');
+                }
+            }
+
+            return docRevision;
         }
     }
 }
