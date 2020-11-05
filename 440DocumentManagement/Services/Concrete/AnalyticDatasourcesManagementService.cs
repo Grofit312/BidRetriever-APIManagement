@@ -82,11 +82,23 @@ namespace _440DocumentManagement.Services.Concrete
 								while (reader.Read())
 								{
 									var row = new Dictionary<string, object>();
+									var isValid = true;
+
 									for (var index = 0; index < columns.Count; index ++)
 									{
+										if (reader[columns[index]] == DBNull.Value)
+										{
+											isValid = false;
+											break;
+										}
+
 										row.Add(columns[index], reader[columns[index]]);
 									}
-									resultList.Add(row);
+
+									if (isValid)
+									{
+										resultList.Add(row);
+									}
 								}
 							}
 
