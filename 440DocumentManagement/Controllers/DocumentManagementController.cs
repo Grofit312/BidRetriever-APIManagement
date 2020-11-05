@@ -87,10 +87,10 @@ namespace _440DocumentManagement.Controllers
 
                         using (var reader = cmd.ExecuteReader())
                         {
-                            var matchedDocuments = new List<Dictionary<string, object>> { };
+                            var matchedDocuments = new List<Dictionary<string, string>> { };
                             while (reader.Read())
                             {
-                                matchedDocuments.Add(new Dictionary<string, object>
+                                matchedDocuments.Add(new Dictionary<string, string>
                                 {
                                     { "doc_id", _dbHelper.SafeGetString(reader, 0) },
                                     { "doc_revision", _dbHelper.SafeGetString(reader, 1) },
@@ -3213,19 +3213,10 @@ namespace _440DocumentManagement.Controllers
                             var docUpdateResult = Post(new ProjectDocumentUpdateRequest()
                             {
                                 search_project_document_id = request.search_project_document_id,
-                                display_name = request.display_name,
-                                doc_name = request.doc_name,
-                                doc_name_abbrv = request.doc_name_abbrv,
-                                doc_number = request.doc_number,
-                                doc_version = request.doc_version,
-                                doc_discipline = request.doc_discipline,
-                                doc_desc = request.doc_desc,
-                                process_status = request.process_status,
-                                status = request.status,
                                 doc_revision = "NULL",
                                 doc_next_rev = "NULL",
+                                doc_number = request.doc_number,
                                 doc_pagenumber = request.doc_pagenumber,
-                                doc_sequence = request.doc_sequence,
                                 doc_subproject = request.doc_subproject
                             }, true);
 
@@ -3306,40 +3297,114 @@ namespace _440DocumentManagement.Controllers
             }
 
             // So it should be inserted before [index], now update revision chain
+            var isCounterBased = relatedInfo["revisioning_type"] != "Submission Date";
+            var timezone = relatedInfo["customer_timezone"];
+            var calculatedRevision = "";
+
             if (index == matchedDocuments.Count)
             {
                 // Become latest
+                // No need to update previous doc revision, just calculate current one and link to the last one
+                if (isCounterBased)
+                {
+                    calculatedRevision = (StringHelper.ConvertToInteger(matchedDocuments[index - 1]["doc_revision"]) + 1).ToString("D2");
+                }
+                else
+                {
+                    calculatedRevision = _documentManagementService.CalculateDocRevisionForSubmissionDate(_dbHelper, relatedInfo["submission_datetime"], timezone, matchedDocuments);
+                }
+
+                Post(new ProjectDocumentUpdateRequest()
+                {
+                    search_project_document_id = matchedDocuments[index - 1]["doc_id"],
+                    doc_next_rev = request.search_project_document_id,
+                    doc_revision = calculatedRevision,
+                }, true);
             }
             else if (index == 0)
             {
                 // Become first
+                // Need to update all doc revisions, link to first doc
+                if (isCounterBased)
+                {
+                    foreach (var document in matchedDocuments)
+                    {
+                        var newDocRevision = (StringHelper.ConvertToInteger(document["doc_revision"]) + 1).ToString("D2");
+
+                        Post(new ProjectDocumentUpdateRequest()
+                        {
+                            search_project_document_id = document["doc_id"],
+                            doc_revision = newDocRevision,
+                        }, true);
+                    }
+                }
+                else
+                {
+                    // How to update doc revisions in submission date based revisons?
+                }
+
+                Post(new ProjectDocumentUpdateRequest()
+                {
+                    search_project_document_id = request.search_project_document_id,
+                    doc_next_rev = matchedDocuments[0]["doc_id"],
+                    doc_revision = "NULL",
+                }, true);
             }
             else
             {
                 // In the middle
+                // Need to update "after" doc revisions, break current link and insert this doc
+                if (isCounterBased)
+                {
+                    Post(new ProjectDocumentUpdateRequest()
+                    {
+                        search_project_document_id = request.search_project_document_id,
+                        doc_revision = (StringHelper.ConvertToInteger(matchedDocuments[index - 1]["doc_revision"]) + 1).ToString("D2"),
+                    }, true);
+
+                    for (var idx = index; idx < matchedDocuments.Count; idx++)
+                    {
+                        Post(new ProjectDocumentUpdateRequest()
+                        {
+                            search_project_document_id = matchedDocuments[idx]["doc_id"],
+                            doc_revision = (StringHelper.ConvertToInteger(matchedDocuments[idx]["doc_revision"]) + 1).ToString("D2"),
+                        }, true);
+                    }
+                }
+                else
+                {
+                    // How to update doc revisions in submission date based revisons?
+                    Post(new ProjectDocumentUpdateRequest()
+                    {
+                        search_project_document_id = request.search_project_document_id,
+                        doc_revision = _documentManagementService.CalculateDocRevisionForSubmissionDate(_dbHelper, relatedInfo["submission_datetime"], relatedInfo["customer_timezone"], matchedDocuments),
+                    }, true);
+                }
+
+                Post(new ProjectDocumentUpdateRequest()
+                {
+                    search_project_document_id = request.search_project_document_id,
+                    doc_next_rev = matchedDocuments[index]["doc_id"],
+                }, true);
+
+                Post(new ProjectDocumentUpdateRequest()
+                {
+                    search_project_document_id = matchedDocuments[index - 1]["doc_id"],
+                    doc_next_rev = request.search_project_document_id,
+                }, true);
             }
 
             // Update document record
-            var calculatedRevision = "TODO";
-
             var docUpdateResult = Post(new ProjectDocumentUpdateRequest()
             {
                 search_project_document_id = request.search_project_document_id,
-                display_name = request.display_name,
-                doc_name = request.doc_name,
-                doc_name_abbrv = request.doc_name_abbrv,
                 doc_number = request.doc_number,
-                doc_version = request.doc_version,
-                doc_discipline = request.doc_discipline,
-                doc_desc = request.doc_desc,
-                process_status = request.process_status,
-                status = request.status,
-                doc_revision = calculatedRevision,
-                doc_next_rev = index == matchedDocuments.Count ? "NULL" : matchedDocuments[index]["doc_id"],
                 doc_pagenumber = request.doc_pagenumber,
-                doc_sequence = request.doc_sequence,
                 doc_subproject = request.doc_subproject
             }, true);
+
+
+            // How to republish ???
         }
 
         private async Task __ProcessDocumentRevisionAttributesChange(KeyAttributeUpdateRequest request)

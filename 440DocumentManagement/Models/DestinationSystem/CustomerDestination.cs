@@ -9,6 +9,7 @@
 
 		// Optional
 		public string destination_access_token { get; set; }
+        public string destination_access_token_2 { get; set; }
 		public string destination_id { get; set; }
 		public string destination_name { get; set; }
 		public string destination_password { get; set; }
