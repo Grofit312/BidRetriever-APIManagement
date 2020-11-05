@@ -279,7 +279,7 @@ namespace _440DocumentManagement.Controllers
 "FROM shared_projects " +
 "LEFT JOIN projects ON shared_projects.project_id = projects.project_id " +
 " INNER JOIN users share_users ON shared_projects.share_source_user_id = share_users.user_id " +
-" LEFT JOIN customers ON shared_projects.share_source_company_id = customers.customer_id " + where;
+" LEFT JOIN customers ON shared_projects.share_company_id = customers.customer_id " + where;
 						if (!string.IsNullOrEmpty(request.share_user_email))
 						{
 							cmd.Parameters.AddWithValue("@share_user_email", request.share_user_email);
