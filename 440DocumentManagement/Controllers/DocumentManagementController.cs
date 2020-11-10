@@ -4,16 +4,11 @@ using _440DocumentManagement.Models;
 using _440DocumentManagement.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using _440DocumentManagement.Models.Document;
-using Dropbox.Api;
 using System.Threading.Tasks;
 using Amazon.DynamoDBv2;
-using Amazon.DynamoDBv2.Model;
-using System.Text.RegularExpressions;
 using _440DocumentManagement.Services.Interface;
 using Amazon.Lambda;
-using Amazon.Lambda.Model;
 using System.Linq;
-using Microsoft.AspNetCore.Http;
 using NSwag.Annotations;
 
 namespace _440DocumentManagement.Controllers
@@ -1947,7 +1942,7 @@ namespace _440DocumentManagement.Controllers
 
 		[HttpPost]
 		[Route("RemoveFolderContentDL")]
-		public IActionResult Post(DLFolderContentDeleteRequest request)
+		public IActionResult Post(DLFolderContentDeleteRequest request, bool isInternalRequest = false)
 		{
 			try
 			{
@@ -2026,7 +2021,10 @@ namespace _440DocumentManagement.Controllers
 			}
 			finally
 			{
-				_dbHelper.CloseConnection();
+				if (!isInternalRequest)
+                {
+					_dbHelper.CloseConnection();
+				}
 			}
 		}
 
@@ -3073,7 +3071,7 @@ namespace _440DocumentManagement.Controllers
 
         [HttpPost]
         [Route("UpdateDocumentKeyAttributes")]
-        public async Task<IActionResult> PostAsync(KeyAttributeUpdateRequest request)
+        public IActionResult Post(KeyAttributeUpdateRequest request)
         {
             try
             {
@@ -3181,6 +3179,38 @@ namespace _440DocumentManagement.Controllers
                             }
                         }
 
+						// If this doc was latest, remove from current plan and create new folder content record for previous revision
+						if (nextDocId == null)
+                        {
+							var folderContentRecord = _documentManagementService.GetCurrentPlanFolderContentRecord(_dbHelper, request.search_project_document_id);
+
+							if (folderContentRecord != null)
+                            {
+								Post(new DLFolderContentDeleteRequest()
+								{
+									folder_content_id = folderContentRecord["folder_content_id"],
+								}, true);
+
+								if (previousDocId != null)
+								{
+									var previousDocFile = _documentManagementService.GetSourceFileInfo(_dbHelper, previousDocId);
+
+									if (previousDocFile != null)
+                                    {
+										Post(new DLFolderContent()
+										{
+											doc_id = previousDocId,
+											file_id = previousDocFile["file_id"],
+											folder_path = folderContentRecord["folder_path"],
+											folder_id = folderContentRecord["folder_id"],
+											folder_original_filename = previousDocFile["file_original_filename"],
+											project_id = relatedInfo["project_id"],
+										}, true);
+									}
+								}
+							}
+						}
+
                         // TODO: Create new comparison in the existing chain (if both prev and next docs exist)
 
                         // TODO: Publish prev doc (in existing chain) to current plans, if next doc is null
@@ -3188,16 +3218,25 @@ namespace _440DocumentManagement.Controllers
                         if (matchedDocuments.Count > 0)
                         {
                             // #300 - There are matches, 
-                            await __ProcessDuplicatedDocumentKeyAttributes(request, matchedDocuments, relatedInfo);
+                            __ProcessDuplicatedDocumentKeyAttributes(request, matchedDocuments, relatedInfo);
                         }
                         else
                         {
-                            // TODO: Publish current doc to current plans (because it is the first and latest one in the new revision chain
+							// TODO: Publish current doc to current plans (because it is the first and latest one in the new revision chain
+							Post(new DLFolderContent()
+							{
+								doc_id = request.search_project_document_id,
+								file_id = relatedInfo["file_id"],
+								folder_path = relatedInfo["discipline_plans_folder"] == "enabled" ? _documentManagementService.GetDisciplineFolderName(request.doc_number) : null,
+								folder_type = "plans_current",
+								folder_original_filename = relatedInfo["file_original_filename"],
+								project_id = relatedInfo["project_id"],
+							}, true);
 
-                            // TODO: Republish updated document (delete existing ones)
+							// TODO: Republish updated document (delete existing ones)
 
-                            // #610 - Update Folder Transaction Log
-                            var existingLogs = _documentManagementService.FindFolderTransactionLogs(_dbHelper, request.search_project_document_id);
+							// #610 - Update Folder Transaction Log
+							var existingLogs = _documentManagementService.FindFolderTransactionLogs(_dbHelper, request.search_project_document_id);
 
                             foreach (var log in existingLogs)
                             {
@@ -3230,7 +3269,7 @@ namespace _440DocumentManagement.Controllers
                 else
                 {
                     // #300 doc_next_rev or doc_prev_rev change => Should update the revision chain
-                    await __ProcessDocumentRevisionAttributesChange(request);
+                    __ProcessDocumentRevisionAttributesChange(request, relatedInfo);
                 }
 
                 // #700 - Update App Transaction Log
@@ -3254,7 +3293,7 @@ namespace _440DocumentManagement.Controllers
             }
         }
 
-        private async Task __ProcessDuplicatedDocumentKeyAttributes(
+        private void __ProcessDuplicatedDocumentKeyAttributes(
 			KeyAttributeUpdateRequest request,
 			List<Dictionary<string, string>> matchedDocuments,
             Dictionary<string, string> relatedInfo)
@@ -3318,8 +3357,13 @@ namespace _440DocumentManagement.Controllers
                 {
                     search_project_document_id = matchedDocuments[index - 1]["doc_id"],
                     doc_next_rev = request.search_project_document_id,
-                    doc_revision = calculatedRevision,
                 }, true);
+
+				Post(new ProjectDocumentUpdateRequest()
+				{
+					search_project_document_id = request.search_project_document_id,
+					doc_revision = calculatedRevision,
+				}, true);
             }
             else if (index == 0)
             {
@@ -3395,7 +3439,7 @@ namespace _440DocumentManagement.Controllers
             }
 
             // Update document record
-            var docUpdateResult = Post(new ProjectDocumentUpdateRequest()
+            Post(new ProjectDocumentUpdateRequest()
             {
                 search_project_document_id = request.search_project_document_id,
                 doc_number = request.doc_number,
@@ -3407,9 +3451,97 @@ namespace _440DocumentManagement.Controllers
             // How to republish ???
         }
 
-        private async Task __ProcessDocumentRevisionAttributesChange(KeyAttributeUpdateRequest request)
+        private void __ProcessDocumentRevisionAttributesChange(KeyAttributeUpdateRequest request, Dictionary<string, string> relatedInfo)
         {
-            // TODO
-        }
+			// Relink current doc's prev and next rev
+			var previousDocId = _documentManagementService.GetPreviousRevisionDocId(_dbHelper, request.search_project_document_id);
+			var nextDocId = _documentManagementService.GetNextRevisionDocId(_dbHelper, request.search_project_document_id);
+
+			if (!string.IsNullOrEmpty(previousDocId))
+			{
+				Post(new ProjectDocumentUpdateRequest()
+				{
+					search_project_document_id = previousDocId,
+					doc_next_rev = string.IsNullOrEmpty(nextDocId) ? "NULL" : nextDocId,
+				});
+			}
+
+			List<Dictionary<string, string>> revisions = _documentManagementService.GetDocumentRevisions(_dbHelper, request.search_project_document_id);
+
+			if (!string.IsNullOrEmpty(request.doc_prev_rev))
+            {
+				var newPrevRev = revisions.Find(revision =>
+				{
+					return revision["doc_id"] == request.doc_prev_rev;
+				});
+
+				if (newPrevRev == null)
+                {
+					return;
+                }
+
+				var nextDocIdOfNewPrevRev = _documentManagementService.GetNextRevisionDocId(_dbHelper, newPrevRev["doc_id"]);
+
+				Post(new ProjectDocumentUpdateRequest()
+				{
+					search_project_document_id = request.doc_prev_rev,
+					doc_next_rev = request.search_project_document_id,
+				});
+
+				Post(new ProjectDocumentUpdateRequest()
+				{
+					search_project_document_id = request.search_project_document_id,
+					doc_next_rev = string.IsNullOrEmpty(nextDocIdOfNewPrevRev) ? "NULL" : nextDocIdOfNewPrevRev,
+				});
+            }
+			else if (!string.IsNullOrEmpty(request.doc_next_rev))
+            {
+				var newNextRev = revisions.Find(revision =>
+				{
+					return revision["doc_id"] == request.doc_next_rev;
+				});
+
+				if (newNextRev == null)
+				{
+					return;
+				}
+
+				var prevDocIdOfNewNextRev = _documentManagementService.GetPreviousRevisionDocId(_dbHelper, newNextRev["doc_id"]);
+
+				Post(new ProjectDocumentUpdateRequest()
+				{
+					search_project_document_id = request.search_project_document_id,
+					doc_next_rev = request.doc_next_rev,
+				});
+
+				if (!string.IsNullOrEmpty(prevDocIdOfNewNextRev))
+                {
+					Post(new ProjectDocumentUpdateRequest()
+					{
+						search_project_document_id = prevDocIdOfNewNextRev,
+						doc_next_rev = request.search_project_document_id,
+					});
+				}
+			}
+
+			// So revision chain updated ... now recalculate revisions
+			var newRevisionChain = _documentManagementService.GetDocumentRevisions(_dbHelper, request.search_project_document_id);
+			var isCounterBased = relatedInfo["revisioning_type"] != "Submission Date";
+			var timezone = relatedInfo["customer_timezone"];
+
+			if (isCounterBased)
+            {
+				for (var index = 0; index < newRevisionChain.Count; index++)
+                {
+
+                }
+            }
+			else
+            {
+
+            }
+
+			// Republish ???
+		}
     }
 }

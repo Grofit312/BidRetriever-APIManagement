@@ -20,5 +20,9 @@ namespace _440DocumentManagement.Services.Interface
         List<Dictionary<string, object>> FindFolderTransactionLogs(DatabaseHelper dbHelper, string docId);
         Dictionary<string, string> GetInfoForKeyAttributeUpdate(DatabaseHelper dbHelper, string docId);
         string CalculateDocRevisionForSubmissionDate(DatabaseHelper dbHelper, string submission_datetime, string timezone, List<Dictionary<string, string>> documents);
-    }
+		Dictionary<string, string> GetCurrentPlanFolderContentRecord(DatabaseHelper dbHelper, string docId);
+		List<Dictionary<string, string>> GetAttachedFiles(DatabaseHelper dbHelper, string docId);
+		Dictionary<string, string> GetSourceFileInfo(DatabaseHelper dbHelper, string docId);
+		string GetDisciplineFolderName(string docNumber);
+	}
 }

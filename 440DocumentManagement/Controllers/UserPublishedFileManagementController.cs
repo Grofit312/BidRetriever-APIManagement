@@ -403,6 +403,10 @@ namespace _440DocumentManagement.Controllers
 					{
 						where += $"user_id='{request.user_id}' AND ";
 					}
+					if (!string.IsNullOrEmpty(request.physical_device_id))
+                    {
+						where += $"physical_device_id='{request.physical_device_id}' AND ";
+                    }
 					where = where.Remove(where.Length - 5);
 
 					cmd.CommandText = "SELECT create_datetime, create_user_id, device_name, device_description, "

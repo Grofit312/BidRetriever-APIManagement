@@ -609,8 +609,20 @@ namespace _440DocumentManagement.Services.Concrete
             }
 
             var revisioningType = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_REVISIONING_TYPE");
-
             info["revisioning_type"] = string.IsNullOrEmpty(revisioningType) ? "Submission Date" : revisioningType;
+
+			var disciplinePlansFolder = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_DISCIPLINE_PLANS_FOLDER");
+			info["discipline_plans_folder"] = string.IsNullOrEmpty(disciplinePlansFolder) ? "disabled" : disciplinePlansFolder;
+
+			var docFile = GetSourceFileInfo(dbHelper, docId);
+
+			if (docFile == null)
+            {
+				return null;
+            }
+
+			info["file_id"] = docFile["file_id"];
+			info["file_original_filename"] = docFile["file_original_filename"];
 
             return info;
         }
@@ -665,5 +677,150 @@ namespace _440DocumentManagement.Services.Concrete
 
             return docRevision;
         }
-    }
+
+		public Dictionary<string, string> GetCurrentPlanFolderContentRecord(DatabaseHelper dbHelper, string docId)
+        {
+			using (var cmd = dbHelper.SpawnCommand())
+            {
+				cmd.CommandText = "SELECT project_folder_contents.folder_content_id, project_folder_contents.folder_id, project_folder_contents.folder_path FROM project_folder_contents "
+					+ "LEFT JOIN project_folders ON project_folders.folder_id=project_folder_contents.folder_id "
+					+ $"WHERE project_folder_contents.doc_id='{docId}' AND status='active' AND project_folders.folder_type='plans_current'";
+
+				using (var reader = cmd.ExecuteReader())
+                {
+					if (reader.Read())
+                    {
+						return new Dictionary<string, string>
+						{
+							{ "folder_content_id", dbHelper.SafeGetString(reader, 0) },
+							{ "folder_id", dbHelper.SafeGetString(reader, 1) },
+							{ "folder_path", dbHelper.SafeGetString(reader, 2) },
+						};
+                    }
+                }
+            }
+
+			return null;
+        }
+
+		public List<Dictionary<string, string>> GetAttachedFiles(DatabaseHelper dbHelper, string docId)
+        {
+			var result = new List<Dictionary<string, string>> { };
+
+			using (var cmd = dbHelper.SpawnCommand())
+			{
+				cmd.CommandText = "SELECT files.file_id, files.file_original_filename, files.file_type FROM project_documents "
+					+ "LEFT JOIN document_files ON document_files.doc_id=project_documents.doc_id "
+					+ "LEFT JOIN files ON files.file_id=document_files.file_id "
+					+ $"WHERE project_documents.doc_id='{docId}' ORDER BY files.create_datetime DESC";
+
+				using (var reader = cmd.ExecuteReader())
+				{
+					while (reader.Read())
+					{
+						var fileInfo = new Dictionary<string, string>
+						{
+							{ "file_id", dbHelper.SafeGetString(reader, 0) },
+							{ "file_original_filename", dbHelper.SafeGetString(reader, 1) },
+							{ "file_type", dbHelper.SafeGetString(reader, 2) },
+						};
+
+						result.Add(fileInfo);
+					}
+				}
+			}
+
+			return result;
+		}
+
+		public Dictionary<string, string> GetSourceFileInfo(DatabaseHelper dbHelper, string docId)
+        {
+			var files = GetAttachedFiles(dbHelper, docId);
+			var enhancedFile = files.Find(file =>
+			{
+				return file["file_type"] == "enhanced_original";
+			});
+
+			if (enhancedFile != null)
+            {
+				return enhancedFile;
+            }
+
+			var sourceFile = files.Find(file =>
+			{
+				return file["file_type"] == "source_system_original";
+			});
+
+			return sourceFile;
+        }
+
+		public string GetDisciplineFolderName(string docNumber)
+        {
+			if (docNumber.StartsWith('A'))
+			{
+				return "Architectural";
+			}
+			else if (docNumber.StartsWith('C'))
+			{
+				return "Civil";
+			}
+			else if (docNumber.StartsWith('D'))
+			{
+				return "Demolition";
+			}
+			else if (docNumber.StartsWith('E'))
+			{
+				return "Electrical";
+			}
+			else if (docNumber.StartsWith("FA") || docNumber.StartsWith("FP"))
+			{
+				return "Fire Protection";
+			}
+			else if (docNumber.StartsWith('G'))
+			{
+				return "General";
+			}
+			else if (docNumber.StartsWith('H'))
+			{
+				return "HVAC";
+			}
+			else if (docNumber.StartsWith('I'))
+			{
+				return "Interior";
+			}
+			else if (docNumber.StartsWith('L') || docNumber.StartsWith("LA"))
+			{
+				return "Landscape";
+			}
+			else if (docNumber.StartsWith("LS"))
+			{
+				return "Life Safety";
+			}
+			else if (docNumber.StartsWith('M'))
+			{
+				return "Mechanical";
+			}
+			else if (docNumber.StartsWith('P'))
+			{
+				return "Plumbing";
+			}
+			else if (docNumber.StartsWith('Q') || docNumber.StartsWith("EQ"))
+			{
+				return "Equipment";
+			}
+			else if (docNumber.StartsWith('S'))
+			{
+				return "Structural";
+			}
+			else if (docNumber.StartsWith('T'))
+			{
+				return "Telecommunications";
+			}
+			else
+			{
+				return "Other";
+			}
+		}
+
+	}
 }
