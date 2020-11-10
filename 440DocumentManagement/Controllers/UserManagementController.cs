@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Amazon.SimpleEmail;
 using Microsoft.AspNetCore.Http;
 using NSwag.Annotations;
+using Newtonsoft.Json;
 
 namespace _440DocumentManagement.Controllers
 {
@@ -58,6 +59,8 @@ namespace _440DocumentManagement.Controllers
 					});
 				}
 
+				var customerDomain = StringHelper.GetCompanyDomain(request.user_email);
+
 				// check if email already exists
 				using (var cmd = _dbHelper.SpawnCommand())
 				{
@@ -91,11 +94,18 @@ namespace _440DocumentManagement.Controllers
 										customer_name = request.customer_name,
 										customer_admin_user_id = userId,
 										customer_id = customerId,
+										customer_domain = customerDomain,
 									}, true);
 
 									if (createCustomerResult is BadRequestObjectResult)
 									{
 										return createCustomerResult;
+									}
+									else
+                                    {
+										var json = JsonConvert.SerializeObject((createCustomerResult as OkObjectResult).Value);
+										var dict = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
+										customerId = dict["customer_id"];
 									}
 								}
 								else
@@ -172,12 +182,19 @@ namespace _440DocumentManagement.Controllers
 								customer_name = request.customer_name,
 								customer_admin_user_id = userId,
 								customer_id = customerId,
+								customer_domain = customerDomain,
 							}, true);
 
 							if (createCustomerResult is BadRequestObjectResult)
 							{
 								return createCustomerResult;
 							}
+							else
+                            {
+								var json = JsonConvert.SerializeObject((createCustomerResult as OkObjectResult).Value);
+								var dict = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
+								customerId = dict["customer_id"];
+                            }
 
 							var addToCompanyResult = await PostAsync(new UserAddCompanyRequest
 							{
@@ -512,8 +529,7 @@ namespace _440DocumentManagement.Controllers
 				// update user password
 				using (var cmd = _dbHelper.SpawnCommand())
 				{
-					cmd.CommandText = $"UPDATE users SET (user_password)=(@user_password) WHERE user_id='{userId}'";
-					cmd.Parameters.AddWithValue("user_password", Hasher.Create(request.user_password));
+					cmd.CommandText = $"UPDATE users SET user_password='{Hasher.Create(request.user_password)}' WHERE user_id='{userId}'";
 
 					if (cmd.ExecuteNonQuery() == 0)
 					{
@@ -574,8 +590,7 @@ namespace _440DocumentManagement.Controllers
 				// update user's company
 				using (var cmd = _dbHelper.SpawnCommand())
 				{
-					cmd.CommandText = $"UPDATE users SET (customer_id)=(@customer_id) WHERE user_id='{userId}'";
-					cmd.Parameters.AddWithValue("customer_id", customerId);
+					cmd.CommandText = $"UPDATE users SET customer_id='{customerId}' WHERE user_id='{userId}'";
 
 					if (cmd.ExecuteNonQuery() == 0)
 					{
@@ -824,7 +839,7 @@ namespace _440DocumentManagement.Controllers
 
 				using (var cmd = _dbHelper.SpawnCommand())
 				{
-					// check project_id already exists
+					// check customer_id already exists
 					cmd.CommandText = $"SELECT EXISTS (SELECT true FROM customers WHERE customer_id='{customerId}')";
 
 					if ((bool)cmd.ExecuteScalar() == true)
@@ -834,11 +849,15 @@ namespace _440DocumentManagement.Controllers
 
 					if (!string.IsNullOrEmpty(customer.customer_domain))
 					{
-						cmd.CommandText = $"SELECT EXISTS (SELECT true from customers where customer_domain='{customer.customer_domain}')";
-						if ((bool)cmd.ExecuteScalar() == true)
-						{
-							return BadRequest(new { status = "Customer domain is duplicated." });
-						}
+						cmd.CommandText = $"SELECT customer_id FROM customers WHERE LOWER(customer_domain)='{customer.customer_domain.ToLower()}'";
+
+						using (var reader = cmd.ExecuteReader())
+                        {
+							if (reader.Read())
+                            {
+								return Ok(new { customer_id = _dbHelper.SafeGetString(reader, 0), status = "duplicated" });
+							}
+                        }
 					}
 
 					// create customer record
@@ -1045,13 +1064,11 @@ namespace _440DocumentManagement.Controllers
 							if (currentCustomerId == string.Empty)
 							{
 								// add user to the company by setting his customer_id field
-								cmd.CommandText = $"UPDATE users SET (customer_id)=(@customer_id) WHERE user_id='{request.user_id}'";
-								cmd.Parameters.AddWithValue("customer_id", request.customer_id);
+								cmd.CommandText = $"UPDATE users SET customer_id='{request.customer_id}' WHERE user_id='{request.user_id}'";
 								cmd.ExecuteNonQuery();
 
 								// update user's projects
-								cmd.CommandText = $"UPDATE projects SET (project_customer_id)=(@project_customer_id) WHERE project_admin_user_id='{request.user_id}'";
-								cmd.Parameters.AddWithValue("project_customer_id", request.customer_id);
+								cmd.CommandText = $"UPDATE projects SET project_customer_id='{request.customer_id}' WHERE project_admin_user_id='{request.user_id}'";
 								cmd.ExecuteNonQuery();
 
 								return Ok(new { status = "Successfully added to the company" });

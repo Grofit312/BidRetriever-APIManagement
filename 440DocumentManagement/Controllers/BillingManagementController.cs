@@ -133,7 +133,7 @@ namespace _440DocumentManagement.Controllers
 				// update customer_billing_id
 				using (var cmd = _dbHelper.SpawnCommand())
 				{
-					cmd.CommandText = "UPDATE customers SET (customer_billing_id)=(@customer_billing_id) WHERE customer_id='" + request.customer_id + "'";
+					cmd.CommandText = $"UPDATE customers SET customer_billing_id='{customer.Id}' WHERE customer_id='" + request.customer_id + "'";
 					cmd.Parameters.AddWithValue("customer_billing_id", customer.Id);
 
 					var rowsAffected = cmd.ExecuteNonQuery();
@@ -658,8 +658,7 @@ namespace _440DocumentManagement.Controllers
 								// set null to customer_billing_id
 								reader.Close();
 
-								cmd.CommandText = "UPDATE customers SET (customer_billing_id)=(@customer_billing_id) WHERE customer_id='" + customerId + "'";
-								cmd.Parameters.AddWithValue("customer_billing_id", DBNull.Value);
+								cmd.CommandText = "UPDATE customers SET customer_billing_id=NULL WHERE customer_id='" + customerId + "'";
 
 								var rowsAffected = cmd.ExecuteNonQuery();
 

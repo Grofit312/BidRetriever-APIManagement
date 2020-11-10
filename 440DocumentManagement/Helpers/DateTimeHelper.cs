@@ -18,6 +18,19 @@ namespace _440DocumentManagement.Helpers
 			}
 		}
 
+		static public string ConvertToUTCYearMonth(string originTimestamp)
+        {
+			try
+			{
+				var timestamp = DateTime.Parse(originTimestamp).ToUniversalTime();
+				return String.Format("{0, 0:D4}/{1, 1:D2}", timestamp.Year, timestamp.Month);
+			}
+			catch (Exception)
+			{
+				return "";
+			}
+		} 
+
 		static public TimeSpan ConvertToTimeSpan(string originTimestamp)
 		{
 			try

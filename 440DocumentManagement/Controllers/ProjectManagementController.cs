@@ -179,7 +179,7 @@ namespace _440DocumentManagement.Controllers
                       + "auto_update_status, customer_source_sys_id, project_password, project_timezone, source_url, source_username, source_password, source_token, source_sys_type_id, project_notes, project_process_status, project_process_message, project_rating, "
                       + "project_award_status, project_building_type, project_contract_type, project_construction_type, project_labor_requirement, "
                       + "project_segment, project_size, project_stage, project_value, source_company_contact_id,source_company_id, source_user_id, "
-                      + "project_assigned_office_id, project_assigned_office_name, project_displayname, source_project_id, num_proj_sources)"
+                      + "project_assigned_office_id, project_assigned_office_name, project_displayname, source_project_id, num_proj_sources, bid_month)"
                       + "VALUES(@project_id, @project_name, @project_number, @project_admin_user_id, @project_address1, @project_address2, "
                       + "@project_city, @project_state, @project_zip, @project_country, @project_service_area, "
                       + "@project_owner_name, @project_desc, @project_bid_datetime, @project_type, "
@@ -187,7 +187,7 @@ namespace _440DocumentManagement.Controllers
                       + "@auto_update_status, @customer_source_sys_id, @project_password, @project_timezone, @source_url, @source_username, @source_password, @source_token, @source_sys_type_id, @project_notes, @project_process_status, @project_process_message, @project_rating, "
                       + "@project_award_status, @project_building_type, @project_contract_type, @project_construction_type, @project_labor_requirement, "
                       + "@project_segment, @project_size, @project_stage, @project_value, @source_company_contact_id, @source_company_id, @source_user_id, "
-                      + "@project_assigned_office_id, @project_assigned_office_name, @project_displayname, @source_project_id, @num_proj_sources)";
+                      + "@project_assigned_office_id, @project_assigned_office_name, @project_displayname, @source_project_id, @num_proj_sources, @bid_month)";
 
                     cmd.Parameters.AddWithValue("project_id", projectId);
                     cmd.Parameters.AddWithValue("project_name", project.project_name ?? "");
@@ -207,6 +207,7 @@ namespace _440DocumentManagement.Controllers
                     cmd.Parameters.AddWithValue("project_owner_name", project.project_owner_name ?? "");
                     cmd.Parameters.AddWithValue("project_desc", project.project_desc ?? "");
                     cmd.Parameters.AddWithValue("project_bid_datetime", project.project_bid_datetime != null ? (object)DateTimeHelper.ConvertToUTCDateTime(project.project_bid_datetime) : DBNull.Value);
+                    cmd.Parameters.AddWithValue("bid_month", project.project_bid_datetime != null ? (object)DateTimeHelper.ConvertToUTCYearMonth(project.project_bid_datetime) : DBNull.Value);
                     cmd.Parameters.AddWithValue("project_type", project.project_type ?? "");
                     cmd.Parameters.AddWithValue("project_customer_id", project.project_customer_id ?? "");
                     cmd.Parameters.AddWithValue("status", project.status ?? "active");
@@ -1333,6 +1334,7 @@ namespace _440DocumentManagement.Controllers
                       + "project_owner_name = COALESCE(@project_owner_name, project_owner_name), "
                       + "project_desc = COALESCE(@project_desc, project_desc), "
                       + (isRemovingBidDatetime ? "project_bid_datetime = NULL, " : "project_bid_datetime = COALESCE(@project_bid_datetime, project_bid_datetime), ")
+                      + (isRemovingBidDatetime ? "bid_month = NULL, " : "bid_month = COALESCE(@bid_month, bid_month), ")
                       + "project_type = COALESCE(@project_type, project_type), "
                       + "status = COALESCE(@status, status), "
                       + "auto_update_status = COALESCE(@auto_update_status, auto_update_status), "
@@ -1430,6 +1432,11 @@ namespace _440DocumentManagement.Controllers
                         cmd.Parameters.AddWithValue("project_bid_datetime",
                         request.project_bid_datetime != null
                         ? (object)DateTimeHelper.ConvertToUTCDateTime(request.project_bid_datetime)
+                        : DBNull.Value);
+
+                        cmd.Parameters.AddWithValue("bid_month",
+                        request.project_bid_datetime != null
+                        ? (object)DateTimeHelper.ConvertToUTCYearMonth(request.project_bid_datetime)
                         : DBNull.Value);
                     }
 
