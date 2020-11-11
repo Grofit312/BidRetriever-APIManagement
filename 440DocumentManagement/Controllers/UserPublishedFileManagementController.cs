@@ -384,11 +384,11 @@ namespace _440DocumentManagement.Controllers
 		{
 			try
 			{
-				if (string.IsNullOrEmpty(request.user_device_id) && string.IsNullOrEmpty(request.user_id))
+				if (string.IsNullOrEmpty(request.user_device_id) && string.IsNullOrEmpty(request.user_id) && string.IsNullOrEmpty(request.physical_device_id))
 				{
 					return BadRequest(new
 					{
-						status = "Please provide user_device_id or user_id"
+						status = "Missing find parameters"
 					});
 				}
 
