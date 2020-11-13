@@ -61,6 +61,9 @@ namespace _440DocumentManagement.Services.Concrete
 
 							cmd.AddWithValue("@customer_id", request.CustomerId);
 							cmd.AddWithValue("@company_id", request.CompanyId);
+							cmd.AddWithValue("@start_date", (object)request.AnalyticDatasourceStartdatetime ?? DBNull.Value);
+							cmd.AddWithValue("@end_date", (object)request.AnalyticDatasourceEnddatetime ?? DBNull.Value);
+
 							if (!string.IsNullOrEmpty(request.AdditionalFilters))
 							{
 								Dictionary<string, object> additionalFilters = JsonConvert.DeserializeObject<Dictionary<string, object>>(request.AdditionalFilters);
