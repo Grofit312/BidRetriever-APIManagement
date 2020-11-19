@@ -1683,7 +1683,7 @@ namespace _440DocumentManagement.Controllers
                       + "projects.project_value, projects.project_size, projects.project_construction_type, projects.project_award_status, source_system_types.source_type_name, users.user_email, "
                       + "projects.project_assigned_office_id, projects.project_assigned_office_name, "
                       + "projects.project_displayname, projects.num_proj_sources, "
-                      + "cast(extract(epoch FROM (projects.project_bid_datetime - now())) as int) as time_till_bid "
+                      + "cast(extract(epoch FROM (projects.project_bid_datetime - now())) as int) as time_till_bid, projects.source_company_contact_id  "
                       + "FROM projects "
                       + "LEFT JOIN users ON projects.project_admin_user_id=users.user_id "
                       + "LEFT JOIN source_system_types ON source_system_types.source_sys_type_id=projects.source_sys_type_id "
@@ -1736,6 +1736,8 @@ namespace _440DocumentManagement.Controllers
                             result.Add("project_displayname", _dbHelper.SafeGetString(reader, 46));
                             result.Add("num_proj_sources", _dbHelper.SafeGetIntegerRaw(reader, 47));
                             result.Add("time_till_bid", _dbHelper.SafeGetIntegerRaw(reader, 48));
+                            result.Add("source_company_contact_id", _dbHelper.SafeGetString(reader, 49));
+
 
                             if (detailLevel == "admin")
                             {
