@@ -59,5 +59,10 @@
 		public string source_company_contact_id { get; set; }
 
         public int num_proj_sources { get; set; }
+
+		public string source_company_displayname { get; set; }
+		public string source_contact_displayname { get; set; }
+		public string source_contact_email { get; set; }
+		public string source_contact_phone { get; set; }
 	}
 }

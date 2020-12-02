@@ -179,7 +179,8 @@ namespace _440DocumentManagement.Controllers
                       + "auto_update_status, customer_source_sys_id, project_password, project_timezone, source_url, source_username, source_password, source_token, source_sys_type_id, project_notes, project_process_status, project_process_message, project_rating, "
                       + "project_award_status, project_building_type, project_contract_type, project_construction_type, project_labor_requirement, "
                       + "project_segment, project_size, project_stage, project_value, source_company_contact_id,source_company_id, source_user_id, "
-                      + "project_assigned_office_id, project_assigned_office_name, project_displayname, source_project_id, num_proj_sources, bid_month)"
+                      + "project_assigned_office_id, project_assigned_office_name, project_displayname, source_project_id, num_proj_sources, bid_month, "
+                      + "source_company_displayname, source_contact_displayname, source_contact_phone, source_contact_email) "
                       + "VALUES(@project_id, @project_name, @project_number, @project_admin_user_id, @project_address1, @project_address2, "
                       + "@project_city, @project_state, @project_zip, @project_country, @project_service_area, "
                       + "@project_owner_name, @project_desc, @project_bid_datetime, @project_type, "
@@ -187,7 +188,8 @@ namespace _440DocumentManagement.Controllers
                       + "@auto_update_status, @customer_source_sys_id, @project_password, @project_timezone, @source_url, @source_username, @source_password, @source_token, @source_sys_type_id, @project_notes, @project_process_status, @project_process_message, @project_rating, "
                       + "@project_award_status, @project_building_type, @project_contract_type, @project_construction_type, @project_labor_requirement, "
                       + "@project_segment, @project_size, @project_stage, @project_value, @source_company_contact_id, @source_company_id, @source_user_id, "
-                      + "@project_assigned_office_id, @project_assigned_office_name, @project_displayname, @source_project_id, @num_proj_sources, @bid_month)";
+                      + "@project_assigned_office_id, @project_assigned_office_name, @project_displayname, @source_project_id, @num_proj_sources, @bid_month, "
+                      + "@source_company_displayname, @source_contact_displayname, @source_contact_phone, @source_contact_email)";
 
                     cmd.Parameters.AddWithValue("project_id", projectId);
                     cmd.Parameters.AddWithValue("project_name", project.project_name ?? "");
@@ -243,6 +245,10 @@ namespace _440DocumentManagement.Controllers
                     cmd.Parameters.AddWithValue("project_assigned_office_name", project.project_assigned_office_name ?? "");
                     cmd.Parameters.AddWithValue("source_project_id", project.source_project_id ?? "");
                     cmd.Parameters.AddWithValue("num_proj_sources", (object)project.num_proj_sources ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("source_company_displayname", project.source_company_displayname ?? "");
+                    cmd.Parameters.AddWithValue("source_contact_displayname", project.source_contact_displayname ?? "");
+                    cmd.Parameters.AddWithValue("source_contact_email", project.source_contact_email ?? "");
+                    cmd.Parameters.AddWithValue("source_contact_phone", project.source_contact_phone ?? "");
 
                     cmd.ExecuteNonQuery();
                 }
@@ -1078,6 +1084,7 @@ namespace _440DocumentManagement.Controllers
                             result.Add("source_contact_phone", sourceInfo["source_contact_phone"]);
                             result.Add("contact_firstname", sourceInfo["contact_firstname"]);
                             result.Add("contact_lastname", sourceInfo["contact_lastname"]);
+                            result.Add("contact_fullname", sourceInfo["contact_fullname"]);
                         });
                         return Ok(resultList);
                     }
@@ -1366,6 +1373,10 @@ namespace _440DocumentManagement.Controllers
                       + "project_assigned_office_name = COALESCE(@project_assigned_office_name, project_assigned_office_name), "
                       + "source_project_id = COALESCE(@source_project_id, source_project_id), "
                       + "num_proj_sources = COALESCE(@num_proj_sources, num_proj_sources), "
+                      + "source_company_displayname = COALESCE(@source_company_displayname, source_company_displayname), "
+                      + "source_contact_displayname = COALESCE(@source_contact_displayname, source_contact_displayname), "
+                      + "source_contact_phone = COALESCE(@source_contact_phone, source_contact_phone), "
+                      + "source_contact_email = COALESCE(@source_contact_email, source_contact_email), "
                       + "edit_datetime = @edit_datetime";
 
                     if (true == true) // check if api_key has admin access
@@ -1426,6 +1437,10 @@ namespace _440DocumentManagement.Controllers
                     cmd.Parameters.AddWithValue("project_assigned_office_name", (object)request.project_assigned_office_name ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("source_project_id", (object)request.source_project_id ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("num_proj_sources", (object)request.num_proj_sources ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("source_company_displayname", (object)request.source_company_displayname ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("source_contact_displayname", (object)request.source_contact_displayname ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("source_contact_phone", (object)request.source_contact_phone ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("source_contact_email", (object)request.source_contact_email ?? DBNull.Value);
 
                     if (!isRemovingBidDatetime)
                     {
@@ -1683,7 +1698,7 @@ namespace _440DocumentManagement.Controllers
                       + "projects.project_value, projects.project_size, projects.project_construction_type, projects.project_award_status, source_system_types.source_type_name, users.user_email, "
                       + "projects.project_assigned_office_id, projects.project_assigned_office_name, "
                       + "projects.project_displayname, projects.num_proj_sources, "
-                      + "cast(extract(epoch FROM (projects.project_bid_datetime - now())) as int) as time_till_bid "
+                      + "cast(extract(epoch FROM (projects.project_bid_datetime - now())) as int) as time_till_bid, projects.source_company_contact_id "
                       + "FROM projects "
                       + "LEFT JOIN users ON projects.project_admin_user_id=users.user_id "
                       + "LEFT JOIN source_system_types ON source_system_types.source_sys_type_id=projects.source_sys_type_id "
@@ -1736,6 +1751,8 @@ namespace _440DocumentManagement.Controllers
                             result.Add("project_displayname", _dbHelper.SafeGetString(reader, 46));
                             result.Add("num_proj_sources", _dbHelper.SafeGetIntegerRaw(reader, 47));
                             result.Add("time_till_bid", _dbHelper.SafeGetIntegerRaw(reader, 48));
+                            result.Add("source_company_contact_id", _dbHelper.SafeGetString(reader, 49));
+
 
                             if (detailLevel == "admin")
                             {
@@ -1765,7 +1782,7 @@ namespace _440DocumentManagement.Controllers
                             result.Add("source_contact_phone", sourceInfo["source_contact_phone"]);
                             result.Add("contact_firstname", sourceInfo["contact_firstname"]);
                             result.Add("contact_lastname", sourceInfo["contact_lastname"]);
-                            result.Add("contact_fullname", $"{sourceInfo["contact_firstname"]} {sourceInfo["contact_lastname"]}");
+                            result.Add("contact_fullname", sourceInfo["contact_fullname"]);
 
 
                             return Ok(result);
@@ -2000,7 +2017,7 @@ namespace _440DocumentManagement.Controllers
                     conn.Open();
                     using (var cmd = conn.CreateCommand())
                     {
-                        var whereString = " WHERE projects.status='active' AND ";
+                        var whereString = " WHERE 1=1 AND ";
 
                         if (request.project_id != null)
                         {
@@ -2217,7 +2234,8 @@ namespace _440DocumentManagement.Controllers
             {
                 cmd.CommandText = "SELECT "
                   + "projects.source_company_id, customer_companies.company_name, "
-                  + "projects.source_user_id, customer_contacts.contact_email, customer_contacts.contact_phone, customer_contacts.contact_firstname, customer_contacts.contact_lastname "
+                  + "projects.source_user_id, customer_contacts.contact_email, customer_contacts.contact_phone, customer_contacts.contact_firstname, customer_contacts.contact_lastname, "
+                  + "projects.source_company_displayname, projects.source_contact_displayname, projects.source_contact_phone, projects.source_contact_email "
                   + "FROM projects "
                   + "LEFT JOIN customer_companies ON customer_companies.company_id = projects.source_company_id "
                   + "LEFT JOIN customer_contacts ON customer_contacts.contact_id = projects.source_company_contact_id "
@@ -2227,16 +2245,31 @@ namespace _440DocumentManagement.Controllers
                 {
                     if (reader.Read())
                     {
+                        var sourceCompanyName = _dbHelper.SafeGetString(reader, 1);
+                        var sourceContactPhone = _dbHelper.SafeGetString(reader, 4);
+                        var sourceContactEmail = _dbHelper.SafeGetString(reader, 3);
+                        var projectSourceCompanyName = _dbHelper.SafeGetString(reader, 7);
+                        var projectSourceContactPhone = _dbHelper.SafeGetString(reader, 9);
+                        var projectSourceContactEmail = _dbHelper.SafeGetString(reader, 10);
+
+                        var contactFirstname = _dbHelper.SafeGetString(reader, 5);
+                        var contactLastname = _dbHelper.SafeGetString(reader, 6);
+                        var projectContactDisplaynameNodes = _dbHelper.SafeGetString(reader, 8).Split(" ", 2);
+                        var projectContactFirstName = projectContactDisplaynameNodes[0];
+                        var projectContactLastName = projectContactDisplaynameNodes.Length > 1 ? projectContactDisplaynameNodes[1] : "";
+                        var resolvedContactFirstname = string.IsNullOrEmpty(contactFirstname) ? projectContactFirstName : contactFirstname;
+                        var resolvedContactLastname = string.IsNullOrEmpty(contactLastname) ? projectContactLastName : contactLastname;
+
                         return new Dictionary<string, string>
                         {
                             { "source_company_id", _dbHelper.SafeGetString(reader, 0) },
-                            { "source_company_name", _dbHelper.SafeGetString(reader, 1) },
+                            { "source_company_name", string.IsNullOrEmpty(sourceCompanyName) ? projectSourceCompanyName : sourceCompanyName },
                             { "source_user_id", _dbHelper.SafeGetString(reader, 2) },
-                            { "source_contact_email", _dbHelper.SafeGetString(reader, 3) },
-                            { "source_contact_phone", _dbHelper.SafeGetString(reader, 4) },
-                            { "contact_firstname", _dbHelper.SafeGetString(reader, 5) },
-                            { "contact_lastname", _dbHelper.SafeGetString(reader, 6) },
-                            { "contact_fullname", $"{_dbHelper.SafeGetString(reader, 5)} {_dbHelper.SafeGetString(reader, 6)}" },
+                            { "source_contact_email", string.IsNullOrEmpty(sourceContactEmail) ? projectSourceContactEmail : sourceContactEmail },
+                            { "source_contact_phone", string.IsNullOrEmpty(sourceContactPhone) ? projectSourceContactPhone : sourceContactPhone },
+                            { "contact_firstname", resolvedContactFirstname },
+                            { "contact_lastname", resolvedContactLastname },
+                            { "contact_fullname", $"{resolvedContactFirstname} {resolvedContactLastname}" },
                         };
                     }
                     else

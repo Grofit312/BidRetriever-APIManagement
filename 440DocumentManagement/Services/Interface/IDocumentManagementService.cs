@@ -19,10 +19,12 @@ namespace _440DocumentManagement.Services.Interface
 		List<Dictionary<string, string>> RetrieveMatchedDocumentsWithKeyAttributes(DatabaseHelper dbHelper, string docId, string projectId, string docNumber, string docPageNumber, string docSubProject);
         List<Dictionary<string, object>> FindFolderTransactionLogs(DatabaseHelper dbHelper, string docId);
         Dictionary<string, string> GetInfoForKeyAttributeUpdate(DatabaseHelper dbHelper, string docId);
-        string CalculateDocRevisionForSubmissionDate(DatabaseHelper dbHelper, string submission_datetime, string timezone, List<Dictionary<string, string>> documents);
+        string CalculateDocRevisionForSubmissionDate(string submission_datetime, string timezone, List<Dictionary<string, string>> documents);
 		Dictionary<string, string> GetCurrentPlanFolderContentRecord(DatabaseHelper dbHelper, string docId);
 		List<Dictionary<string, string>> GetAttachedFiles(DatabaseHelper dbHelper, string docId);
 		Dictionary<string, string> GetSourceFileInfo(DatabaseHelper dbHelper, string docId);
 		string GetDisciplineFolderName(string docNumber);
+		string GetSystemSetting(DatabaseHelper dbHelper, string settingName);
+		void CreateComparison(DatabaseHelper dbHelper, string docId, string prevDocId, Dictionary<string, string> relatedInfo);
 	}
 }

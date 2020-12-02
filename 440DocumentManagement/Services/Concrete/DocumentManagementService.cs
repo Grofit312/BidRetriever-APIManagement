@@ -4,6 +4,7 @@ using Amazon.S3;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 
 namespace _440DocumentManagement.Services.Concrete
 {
@@ -95,7 +96,7 @@ namespace _440DocumentManagement.Services.Concrete
 			}
 			else
 			{
-                updatedDocRevision = CalculateDocRevisionForSubmissionDate(dbHelper, (string)currentDoc["submission_datetime"], timezone, documents);
+                updatedDocRevision = CalculateDocRevisionForSubmissionDate((string)currentDoc["submission_datetime"], timezone, documents);
 			}
 
 			return updatedDocRevision;
@@ -449,7 +450,6 @@ namespace _440DocumentManagement.Services.Concrete
 							{ "doc_size", dbHelper.SafeGetString(reader, 26) }
 						};
 					}
-					reader.Close();
 
 					return result;
 				}
@@ -493,6 +493,8 @@ namespace _440DocumentManagement.Services.Concrete
 			}
 
 			// Get matched project document with the key attributes
+			var matchedDocId = "";
+
 			using (var cmd = dbHelper.SpawnCommand())
 			{
                 string commandText = $"SELECT doc_id FROM project_documents WHERE project_id='{projectId}' ";
@@ -512,10 +514,7 @@ namespace _440DocumentManagement.Services.Concrete
 				{
 					if (reader.Read())
 					{
-                        var locatedDocId = reader["doc_id"] as string;
-                        var revisionChain = GetDocumentRevisions(dbHelper, locatedDocId);
-
-                        return revisionChain;
+                        matchedDocId = reader["doc_id"] as string;
 					}
                     else
                     {
@@ -523,6 +522,10 @@ namespace _440DocumentManagement.Services.Concrete
                     }
 				}
 			}
+
+			var revisionChain = GetDocumentRevisions(dbHelper, matchedDocId);
+
+			return revisionChain;
 		}
 
         public List<Dictionary<string, object>> FindFolderTransactionLogs(
@@ -584,11 +587,15 @@ namespace _440DocumentManagement.Services.Concrete
             {
                 cmd.CommandText = "SELECT project_documents.project_id, project_documents.create_datetime,  "
                     + "files.file_original_modified_datetime, files.parent_original_modified_datetime, "
-                    + "project_documents.submission_datetime, customers.customer_timezone "
+                    + "project_documents.submission_datetime, customers.customer_timezone, projects.project_name, "
+					+ "project_submissions.submitter_email, project_documents.submission_id "
                     + "FROM project_documents "
                     + "LEFT JOIN projects ON projects.project_id=project_documents.project_id "
+					+ "LEFT JOIN project_submissions ON project_submissions.project_submission_id=project_documents.submission_id "
                     + "LEFT JOIN customers ON projects.project_customer_id=customers.customer_id "
-                    + $"WHERE project_documents.doc_id='{docId}'";
+					+ "LEFT JOIN document_files ON project_documents.doc_id=document_files.doc_id "
+					+ "LEFT JOIN files ON files.file_id=document_files.file_id "
+                    + $"WHERE project_documents.doc_id='{docId}' AND files.file_type='source_system_original'";
 
                 using (var reader = cmd.ExecuteReader())
                 {
@@ -600,6 +607,9 @@ namespace _440DocumentManagement.Services.Concrete
                         info["parent_original_modified_datetime"] = dbHelper.SafeGetDatetimeString(reader, 3);
                         info["submission_datetime"] = dbHelper.SafeGetDatetimeString(reader, 4);
                         info["customer_timezone"] = dbHelper.SafeGetString(reader, 5);
+						info["project_name"] = dbHelper.SafeGetString(reader, 6);
+						info["submitter_email"] = dbHelper.SafeGetString(reader, 7);
+						info["submission_id"] = dbHelper.SafeGetString(reader, 8);
                     }
                     else
                     {
@@ -613,6 +623,24 @@ namespace _440DocumentManagement.Services.Concrete
 
 			var disciplinePlansFolder = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_DISCIPLINE_PLANS_FOLDER");
 			info["discipline_plans_folder"] = string.IsNullOrEmpty(disciplinePlansFolder) ? "disabled" : disciplinePlansFolder;
+
+			var planFileNaming = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_PLAN_FILE_NAMING");
+			info["plan_file_naming"] = string.IsNullOrEmpty(planFileNaming) ? "<doc_num>__<doc_name>__<doc_revision>" : planFileNaming;
+
+			var currentPlansFolder = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_CURRENT_PLANS_FOLDER");
+			info["current_plans_folder"] = string.IsNullOrEmpty(currentPlansFolder) ? "disabled" : currentPlansFolder;
+
+			var allPlansFolder = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_ALL_PLANS_FOLDER");
+			info["all_plans_folder"] = string.IsNullOrEmpty(allPlansFolder) ? "disabled" : allPlansFolder;
+
+			var allPlansSubmissionFolder = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_ALL_PLANS_SUBMISSION_FOLDER");
+			info["all_plans_submission_folder"] = string.IsNullOrEmpty(allPlansSubmissionFolder) ? "disabled" : allPlansSubmissionFolder;
+
+			var comparisonPlansFolder = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_COMPARISON_PLANS_FOLDER");
+			info["comparison_plans_folder"] = string.IsNullOrEmpty(comparisonPlansFolder) ? "separate_comparison_folder" : comparisonPlansFolder;
+
+			var rasterPlansFolder = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_RASTER_PLANS_FOLDER");
+			info["raster_plans_folder"] = string.IsNullOrEmpty(rasterPlansFolder) ? "disabled" : rasterPlansFolder;
 
 			var docFile = GetSourceFileInfo(dbHelper, docId);
 
@@ -646,7 +674,26 @@ namespace _440DocumentManagement.Services.Concrete
             return null;
         }
 
-        public string CalculateDocRevisionForSubmissionDate(DatabaseHelper dbHelper, string submission_datetime, string timezone, List<Dictionary<string, string>> documents)
+		public string GetSystemSetting(DatabaseHelper dbHelper, string setting_name)
+		{
+			using (var cmd = dbHelper.SpawnCommand())
+			{
+				cmd.CommandText = "SELECT setting_value FROM system_settings "
+					+ $"WHERE setting_name='{setting_name}'";
+
+				using (var reader = cmd.ExecuteReader())
+				{
+					if (reader.Read())
+					{
+						return dbHelper.SafeGetString(reader, 0);
+					}
+				}
+			}
+
+			return null;
+		}
+
+		public string CalculateDocRevisionForSubmissionDate(string submission_datetime, string timezone, List<Dictionary<string, string>> documents)
         {
             var docRevision = "";
             var submissionDatetime = DateTimeHelper.ConvertToUserTimezone(submission_datetime, timezone);
@@ -671,7 +718,7 @@ namespace _440DocumentManagement.Services.Concrete
                 else
                 {
                     docRevision = timestampWithoutHM;
-                    docRevision += " - " + numberOfPreviousDocsInSameDay.ToString().PadLeft(2, '0');
+                    docRevision += " - " + numberOfPreviousDocsInSameDay.ToString("D2");
                 }
             }
 
@@ -684,7 +731,7 @@ namespace _440DocumentManagement.Services.Concrete
             {
 				cmd.CommandText = "SELECT project_folder_contents.folder_content_id, project_folder_contents.folder_id, project_folder_contents.folder_path FROM project_folder_contents "
 					+ "LEFT JOIN project_folders ON project_folders.folder_id=project_folder_contents.folder_id "
-					+ $"WHERE project_folder_contents.doc_id='{docId}' AND status='active' AND project_folders.folder_type='plans_current'";
+					+ $"WHERE project_folder_contents.doc_id='{docId}' AND project_folder_contents.status='active' AND project_folders.folder_type='plans_current'";
 
 				using (var reader = cmd.ExecuteReader())
                 {
@@ -822,5 +869,49 @@ namespace _440DocumentManagement.Services.Concrete
 			}
 		}
 
+		public void CreateComparison(DatabaseHelper dbHelper, string currentDocId, string prevDocId, Dictionary<string, string> relatedInfo)
+        {
+			var wipApiEndpoint = GetSystemSetting(dbHelper, "BR_WIPAPI_ENDPOINT");
+			var vaultBucket = GetSystemSetting(dbHelper, "BR_PERM_VAULT");
+
+			if (string.IsNullOrEmpty(wipApiEndpoint))
+            {
+				// wip api endpoint not available, should terminate
+				return;
+            }
+
+			using (var client = new HttpClient())
+            {
+				client.BaseAddress = new Uri(wipApiEndpoint);
+				client.Timeout = TimeSpan.FromSeconds(60);
+
+				try
+				{
+					var data = new Dictionary<string, string>
+					{
+						{ "doc_id", currentDocId },
+						{ "prev_doc_id", prevDocId },
+						{ "file_original_filename", relatedInfo["file_original_filename"] },
+						{ "project_id", relatedInfo["project_id"] },
+						{ "project_name", relatedInfo["project_name"] },
+						{ "vault_bucket", vaultBucket },
+						{ "submitter_email", relatedInfo["submitter_email"] },
+						{ "submission_datetime", relatedInfo["submission_datetime"] },
+						{ "submission_id", relatedInfo["submission_id"] },
+						{ "user_timezone", relatedInfo["customer_timezone"] },
+					};
+					var request = new HttpRequestMessage(HttpMethod.Post, "Create9414")
+					{
+						Content = new FormUrlEncodedContent(data)
+					};
+
+					client.SendAsync(request);
+				}
+				catch (Exception exception)
+				{
+					// Do nothing
+				}
+			}
+		}
 	}
 }

@@ -8,5 +8,6 @@
 		public string share_office_id { get; set; }
 		public string share_user_id { get; set; }
 		public string status { get; set; }
+		public string share_type { get; set; }
 	}
 }

@@ -3159,9 +3159,9 @@ namespace _440DocumentManagement.Controllers
                         var previousDocId = _documentManagementService.GetPreviousRevisionDocId(_dbHelper, request.search_project_document_id);
                         var nextDocId = _documentManagementService.GetNextRevisionDocId(_dbHelper, request.search_project_document_id);
 
-                        if (previousDocId != null)
+                        if (!string.IsNullOrEmpty(previousDocId))
                         {
-                            if (nextDocId == null)
+                            if (string.IsNullOrEmpty(nextDocId))
                             {
                                 Post(new ProjectDocumentUpdateRequest()
                                 {
@@ -3176,12 +3176,15 @@ namespace _440DocumentManagement.Controllers
                                     search_project_document_id = previousDocId,
                                     doc_next_rev = nextDocId,
                                 }, true);
+
+								// Create new comparison
+								_documentManagementService.CreateComparison(_dbHelper, nextDocId, previousDocId, relatedInfo);
                             }
                         }
 
 						// If this doc was latest, remove from current plan and create new folder content record for previous revision
-						if (nextDocId == null)
-                        {
+						if (relatedInfo["current_plans_folder"] == "enabled" && string.IsNullOrEmpty(nextDocId))
+						{
 							var folderContentRecord = _documentManagementService.GetCurrentPlanFolderContentRecord(_dbHelper, request.search_project_document_id);
 
 							if (folderContentRecord != null)
@@ -3211,10 +3214,6 @@ namespace _440DocumentManagement.Controllers
 							}
 						}
 
-                        // TODO: Create new comparison in the existing chain (if both prev and next docs exist)
-
-                        // TODO: Publish prev doc (in existing chain) to current plans, if next doc is null
-
                         if (matchedDocuments.Count > 0)
                         {
                             // #300 - There are matches, 
@@ -3222,16 +3221,18 @@ namespace _440DocumentManagement.Controllers
                         }
                         else
                         {
-							// TODO: Publish current doc to current plans (because it is the first and latest one in the new revision chain
-							Post(new DLFolderContent()
-							{
-								doc_id = request.search_project_document_id,
-								file_id = relatedInfo["file_id"],
-								folder_path = relatedInfo["discipline_plans_folder"] == "enabled" ? _documentManagementService.GetDisciplineFolderName(request.doc_number) : null,
-								folder_type = "plans_current",
-								folder_original_filename = relatedInfo["file_original_filename"],
-								project_id = relatedInfo["project_id"],
-							}, true);
+							if (relatedInfo["comparison_plans_folder"] == "enabled")
+                            {
+								Post(new DLFolderContent()
+								{
+									doc_id = request.search_project_document_id,
+									file_id = relatedInfo["file_id"],
+									folder_path = relatedInfo["discipline_plans_folder"].Contains("current_plans") ? _documentManagementService.GetDisciplineFolderName(request.doc_number) : null,
+									folder_type = "plans_current",
+									folder_original_filename = relatedInfo["file_original_filename"],
+									project_id = relatedInfo["project_id"],
+								}, true);
+							}
 
 							// TODO: Republish updated document (delete existing ones)
 
@@ -3350,7 +3351,7 @@ namespace _440DocumentManagement.Controllers
                 }
                 else
                 {
-                    calculatedRevision = _documentManagementService.CalculateDocRevisionForSubmissionDate(_dbHelper, relatedInfo["submission_datetime"], timezone, matchedDocuments);
+                    calculatedRevision = _documentManagementService.CalculateDocRevisionForSubmissionDate(relatedInfo["submission_datetime"], timezone, matchedDocuments);
                 }
 
                 Post(new ProjectDocumentUpdateRequest()
@@ -3364,7 +3365,35 @@ namespace _440DocumentManagement.Controllers
 					search_project_document_id = request.search_project_document_id,
 					doc_revision = calculatedRevision,
 				}, true);
-            }
+
+
+				// Update folder content in current plans folder
+				if (relatedInfo["current_plans_folder"] == "enabled")
+                {
+					var folderContentRecord = _documentManagementService.GetCurrentPlanFolderContentRecord(_dbHelper, matchedDocuments[index - 1]["doc_id"]);
+
+					if (folderContentRecord != null)
+					{
+						Post(new DLFolderContentDeleteRequest()
+						{
+							folder_content_id = folderContentRecord["folder_content_id"],
+						}, true);
+
+						Post(new DLFolderContent()
+						{
+							doc_id = request.search_project_document_id,
+							file_id = relatedInfo["file_id"],
+							folder_path = folderContentRecord["folder_path"],
+							folder_id = folderContentRecord["folder_id"],
+							folder_original_filename = relatedInfo["file_original_filename"],
+							project_id = relatedInfo["project_id"],
+						}, true);
+					}
+				}
+
+				// Create new comparison
+				_documentManagementService.CreateComparison(_dbHelper, request.search_project_document_id, matchedDocuments[index - 1]["doc_id"], relatedInfo);
+			}
             else if (index == 0)
             {
                 // Become first
@@ -3384,7 +3413,20 @@ namespace _440DocumentManagement.Controllers
                 }
                 else
                 {
-                    // How to update doc revisions in submission date based revisons?
+					var previousDocuments = new List<Dictionary<string, string>> { relatedInfo };
+
+                    for (var idx = 0; idx < matchedDocuments.Count; idx++)
+                    {
+						var newRevision = _documentManagementService.CalculateDocRevisionForSubmissionDate(matchedDocuments[idx]["submission_datetime"], timezone, previousDocuments);
+
+						Post(new ProjectDocumentUpdateRequest()
+						{
+							search_project_document_id = matchedDocuments[idx]["doc_id"],
+							doc_revision = newRevision,
+						}, true);
+
+						previousDocuments.Add(matchedDocuments[idx]);
+					}
                 }
 
                 Post(new ProjectDocumentUpdateRequest()
@@ -3393,6 +3435,11 @@ namespace _440DocumentManagement.Controllers
                     doc_next_rev = matchedDocuments[0]["doc_id"],
                     doc_revision = "NULL",
                 }, true);
+
+				// No need to update current plans folder
+
+				// Create comparison
+				_documentManagementService.CreateComparison(_dbHelper, matchedDocuments[0]["doc_id"], request.search_project_document_id, relatedInfo);
             }
             else
             {
@@ -3417,13 +3464,27 @@ namespace _440DocumentManagement.Controllers
                 }
                 else
                 {
-                    // How to update doc revisions in submission date based revisons?
+					var previousDocs = matchedDocuments.GetRange(0, index);
+
                     Post(new ProjectDocumentUpdateRequest()
                     {
                         search_project_document_id = request.search_project_document_id,
-                        doc_revision = _documentManagementService.CalculateDocRevisionForSubmissionDate(_dbHelper, relatedInfo["submission_datetime"], relatedInfo["customer_timezone"], matchedDocuments),
+                        doc_revision = _documentManagementService.CalculateDocRevisionForSubmissionDate(relatedInfo["submission_datetime"], timezone, previousDocs),
                     }, true);
-                }
+
+					previousDocs.Add(relatedInfo);
+
+					for (var idx = index; idx < matchedDocuments.Count; idx++)
+					{
+						Post(new ProjectDocumentUpdateRequest()
+						{
+							search_project_document_id = matchedDocuments[idx]["doc_id"],
+							doc_revision = _documentManagementService.CalculateDocRevisionForSubmissionDate(relatedInfo["submission_datetime"], timezone, previousDocs),
+						}, true);
+
+						previousDocs.Add(matchedDocuments[idx]);
+					}
+				}
 
                 Post(new ProjectDocumentUpdateRequest()
                 {
@@ -3436,7 +3497,11 @@ namespace _440DocumentManagement.Controllers
                     search_project_document_id = matchedDocuments[index - 1]["doc_id"],
                     doc_next_rev = request.search_project_document_id,
                 }, true);
-            }
+
+				// Create two comparison
+				_documentManagementService.CreateComparison(_dbHelper, matchedDocuments[index]["doc_id"], request.search_project_document_id, relatedInfo);
+				_documentManagementService.CreateComparison(_dbHelper, request.search_project_document_id, matchedDocuments[index - 1]["doc_id"], relatedInfo);
+			}
 
             // Update document record
             Post(new ProjectDocumentUpdateRequest()
@@ -3457,16 +3522,28 @@ namespace _440DocumentManagement.Controllers
 			var previousDocId = _documentManagementService.GetPreviousRevisionDocId(_dbHelper, request.search_project_document_id);
 			var nextDocId = _documentManagementService.GetNextRevisionDocId(_dbHelper, request.search_project_document_id);
 
+			if (string.IsNullOrEmpty(previousDocId) && string.IsNullOrEmpty(nextDocId))
+            {
+				// There's no revision chain. Bad request
+				return;
+            }
+
 			if (!string.IsNullOrEmpty(previousDocId))
 			{
 				Post(new ProjectDocumentUpdateRequest()
 				{
 					search_project_document_id = previousDocId,
 					doc_next_rev = string.IsNullOrEmpty(nextDocId) ? "NULL" : nextDocId,
-				});
+				}, true);
+
+				// create new comparison
+				if (!string.IsNullOrEmpty(nextDocId))
+                {
+					_documentManagementService.CreateComparison(_dbHelper, nextDocId, previousDocId, relatedInfo);
+				}
 			}
 
-			List<Dictionary<string, string>> revisions = _documentManagementService.GetDocumentRevisions(_dbHelper, request.search_project_document_id);
+			List<Dictionary<string, string>> revisions = _documentManagementService.GetDocumentRevisions(_dbHelper, string.IsNullOrEmpty(previousDocId) ? nextDocId : previousDocId);
 
 			if (!string.IsNullOrEmpty(request.doc_prev_rev))
             {
@@ -3486,13 +3563,46 @@ namespace _440DocumentManagement.Controllers
 				{
 					search_project_document_id = request.doc_prev_rev,
 					doc_next_rev = request.search_project_document_id,
-				});
+				}, true);
 
 				Post(new ProjectDocumentUpdateRequest()
 				{
 					search_project_document_id = request.search_project_document_id,
 					doc_next_rev = string.IsNullOrEmpty(nextDocIdOfNewPrevRev) ? "NULL" : nextDocIdOfNewPrevRev,
-				});
+				}, true);
+
+				// Create comparison
+				_documentManagementService.CreateComparison(_dbHelper, request.search_project_document_id, request.doc_prev_rev, relatedInfo);
+
+				if (!string.IsNullOrEmpty(nextDocIdOfNewPrevRev))
+                {
+					_documentManagementService.CreateComparison(_dbHelper, nextDocIdOfNewPrevRev, request.search_project_document_id, relatedInfo);
+                }
+
+				// Update folder content
+				if (relatedInfo["current_plans_folder"] == "enabled" && string.IsNullOrEmpty(nextDocIdOfNewPrevRev))
+                {
+					// Update folder content in current plans folder 
+					var folderContentRecord = _documentManagementService.GetCurrentPlanFolderContentRecord(_dbHelper, request.doc_prev_rev);
+
+					if (folderContentRecord != null)
+					{
+						Post(new DLFolderContentDeleteRequest()
+						{
+							folder_content_id = folderContentRecord["folder_content_id"],
+						}, true);
+
+						Post(new DLFolderContent()
+						{
+							doc_id = request.search_project_document_id,
+							file_id = relatedInfo["file_id"],
+							folder_path = folderContentRecord["folder_path"],
+							folder_id = folderContentRecord["folder_id"],
+							folder_original_filename = relatedInfo["file_original_filename"],
+							project_id = relatedInfo["project_id"],
+						}, true);
+					}
+				}
             }
 			else if (!string.IsNullOrEmpty(request.doc_next_rev))
             {
@@ -3512,7 +3622,7 @@ namespace _440DocumentManagement.Controllers
 				{
 					search_project_document_id = request.search_project_document_id,
 					doc_next_rev = request.doc_next_rev,
-				});
+				}, true);
 
 				if (!string.IsNullOrEmpty(prevDocIdOfNewNextRev))
                 {
@@ -3520,7 +3630,42 @@ namespace _440DocumentManagement.Controllers
 					{
 						search_project_document_id = prevDocIdOfNewNextRev,
 						doc_next_rev = request.search_project_document_id,
-					});
+					}, true);
+				}
+
+				// Create comparison
+				_documentManagementService.CreateComparison(_dbHelper, request.doc_next_rev, request.search_project_document_id, relatedInfo);
+
+				if (!string.IsNullOrEmpty(prevDocIdOfNewNextRev))
+                {
+					_documentManagementService.CreateComparison(_dbHelper, request.search_project_document_id, prevDocIdOfNewNextRev, relatedInfo);
+                }
+
+				// Update folder content
+				if (relatedInfo["current_plans_folder"] == "enabled" && string.IsNullOrEmpty(nextDocId))
+                {
+					// This was originally latest doc, so should remove it from folder content and publish new one
+					var folderContentRecord = _documentManagementService.GetCurrentPlanFolderContentRecord(_dbHelper, request.search_project_document_id);
+
+					if (folderContentRecord != null)
+					{
+						Post(new DLFolderContentDeleteRequest()
+						{
+							folder_content_id = folderContentRecord["folder_content_id"],
+						}, true);
+
+						var nextDocFile = _documentManagementService.GetSourceFileInfo(_dbHelper, request.doc_next_rev);
+
+						Post(new DLFolderContent()
+						{
+							doc_id = request.doc_next_rev,
+							file_id = nextDocFile["file_id"],
+							folder_path = folderContentRecord["folder_path"],
+							folder_id = folderContentRecord["folder_id"],
+							folder_original_filename = nextDocFile["file_original_filename"],
+							project_id = relatedInfo["project_id"],
+						}, true);
+					}
 				}
 			}
 
@@ -3533,13 +3678,26 @@ namespace _440DocumentManagement.Controllers
             {
 				for (var index = 0; index < newRevisionChain.Count; index++)
                 {
-
-                }
+					Post(new ProjectDocumentUpdateRequest()
+					{
+						search_project_document_id = newRevisionChain[index]["doc_id"],
+						doc_revision = index == 0 ? "NULL" : index.ToString("D2"),
+					}, true);
+				}
             }
 			else
             {
+				for (var index = 0; index < newRevisionChain.Count; index++)
+				{
+					var previousDocs = newRevisionChain.GetRange(0, index);
 
-            }
+					Post(new ProjectDocumentUpdateRequest()
+					{
+						search_project_document_id = newRevisionChain[index]["doc_id"],
+						doc_revision = index == 0 ? "NULL" : _documentManagementService.CalculateDocRevisionForSubmissionDate(newRevisionChain[index]["submission_datetime"], timezone, previousDocs),
+					}, true);
+				}
+			}
 
 			// Republish ???
 		}

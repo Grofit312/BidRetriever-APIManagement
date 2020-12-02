@@ -20,10 +20,25 @@
       "commandName": "Project",
       "launchBrowser": true,
       "launchUrl": "swagger",
+      "applicationUrl": "http://localhost:51203/",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "BR_API_ENDPOINT": "http://windowsserver-2131615750.us-east-1.elb.amazonaws.com/service/api/",
+        "BR_DB_HOST_NAME": "dev-bidretriever-001.c3hl0ohotlkg.us-east-1.rds.amazonaws.com",
+        "BR_DB_NAME": "dev_bidretriever",
+        "BR_DB_PASSWORD": "5nQj4lc8KE9C",
+        "BR_DB_PORT": "5432",
+        "BR_DB_USER_NAME": "dev_bidretriever",
+        "BR_WIP_DB_NAME": "br_wip"
+      }
+    },
+    "440DocumentManagement": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "applicationUrl": "http://localhost:52527",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
-      },
-      "applicationUrl": "http://localhost:51203/"
+      }
     }
   }
 }

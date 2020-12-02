@@ -17,5 +17,6 @@
 		public string share_source_user_displayname { get; set; }
 		public string share_source_office_id { get; set; }
 		public string status { get; set; }
+		public string share_type { get; set; }
 	}
 }
