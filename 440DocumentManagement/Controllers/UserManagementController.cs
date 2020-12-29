@@ -257,12 +257,16 @@ namespace _440DocumentManagement.Controllers
 					});
 				}
 
+				var emails = request.user_email.Split("/");
+				var firstEmail = emails[0];
+				var secondEmail = emails.Length > 1 ? emails[1] : null;
+
 				// login
 				using (var cmd = _dbHelper.SpawnCommand())
 				{
 					cmd.CommandText = "SELECT users.user_id, users.customer_id, customers.customer_name, users.status, users.user_firstname, users.user_lastname, "
 																					+ "users.user_email, users.user_role, users.user_password, users.customer_office_id FROM users LEFT JOIN customers ON (customers.customer_id=users.customer_id) WHERE LOWER(users.user_email)=@user_email";
-					cmd.Parameters.AddWithValue("user_email", request.user_email.ToLower());
+					cmd.Parameters.AddWithValue("user_email", firstEmail.ToLower());
 
 					using (var reader = cmd.ExecuteReader())
 					{
@@ -281,23 +285,26 @@ namespace _440DocumentManagement.Controllers
 							{
 								if (Hasher.Validate(request.user_password, password))
 								{
-									return Ok(new
-									{
-										status = "Successfully logged in",
-										user = new Dictionary<string, string>()
+									if (string.IsNullOrEmpty(secondEmail))
+                                    {
+										return Ok(new
 										{
-											{ "user_id", _dbHelper.SafeGetString(reader, 0) },
-											{ "customer_id", _dbHelper.SafeGetString(reader, 1) },
-											{ "customer_name", _dbHelper.SafeGetString(reader, 2) },
-											{ "status", _dbHelper.SafeGetString(reader, 3) },
-											{ "user_firstname", _dbHelper.SafeGetString(reader, 4) },
-											{ "user_lastname", _dbHelper.SafeGetString(reader, 5) },
-											{ "user_email", _dbHelper.SafeGetString(reader, 6) },
-											{ "user_role", _dbHelper.SafeGetString(reader, 7) },
-											{ "customer_office_id", _dbHelper.SafeGetString(reader, 9) },
-											{ "token", JWT.CreateTokenStringFromUserId(_dbHelper.SafeGetString(reader, 0)) }
-										}
-									});
+											status = "Successfully logged in",
+											user = new Dictionary<string, string>()
+											{
+												{ "user_id", _dbHelper.SafeGetString(reader, 0) },
+												{ "customer_id", _dbHelper.SafeGetString(reader, 1) },
+												{ "customer_name", _dbHelper.SafeGetString(reader, 2) },
+												{ "status", _dbHelper.SafeGetString(reader, 3) },
+												{ "user_firstname", _dbHelper.SafeGetString(reader, 4) },
+												{ "user_lastname", _dbHelper.SafeGetString(reader, 5) },
+												{ "user_email", _dbHelper.SafeGetString(reader, 6) },
+												{ "user_role", _dbHelper.SafeGetString(reader, 7) },
+												{ "customer_office_id", _dbHelper.SafeGetString(reader, 9) },
+												{ "token", JWT.CreateTokenStringFromUserId(_dbHelper.SafeGetString(reader, 0)) }
+											}
+										});
+									}
 								}
 								else
 								{
@@ -316,6 +323,49 @@ namespace _440DocumentManagement.Controllers
 							});
 						}
 					}
+
+					// This is admin's customer login
+					if (!firstEmail.ToLower().Contains("bidretriever.net"))
+                    {
+						return BadRequest(new
+						{
+							status = "Unauthorized login request"
+						});
+					}
+
+					cmd.CommandText = "SELECT users.user_id, users.customer_id, customers.customer_name, users.status, users.user_firstname, users.user_lastname, "
+						+ $"users.user_email, users.user_role, users.user_password, users.customer_office_id FROM users LEFT JOIN customers ON (customers.customer_id=users.customer_id) WHERE LOWER(users.user_email)='{secondEmail.ToLower()}'";
+
+					using (var reader = cmd.ExecuteReader())
+                    {
+						if (reader.Read())
+                        {
+							return Ok(new
+							{
+								status = "Successfully logged in",
+								user = new Dictionary<string, string>()
+								{
+									{ "user_id", _dbHelper.SafeGetString(reader, 0) },
+									{ "customer_id", _dbHelper.SafeGetString(reader, 1) },
+									{ "customer_name", _dbHelper.SafeGetString(reader, 2) },
+									{ "status", _dbHelper.SafeGetString(reader, 3) },
+									{ "user_firstname", _dbHelper.SafeGetString(reader, 4) },
+									{ "user_lastname", _dbHelper.SafeGetString(reader, 5) },
+									{ "user_email", _dbHelper.SafeGetString(reader, 6) },
+									{ "user_role", _dbHelper.SafeGetString(reader, 7) },
+									{ "customer_office_id", _dbHelper.SafeGetString(reader, 9) },
+									{ "token", JWT.CreateTokenStringFromUserId(_dbHelper.SafeGetString(reader, 0)) }
+								}
+							});
+						}
+						else
+                        {
+							return BadRequest(new
+							{
+								status = "Cannot find user"
+							});
+						}
+                    }
 				}
 			}
 			catch (Exception exception)

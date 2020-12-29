@@ -239,143 +239,55 @@ namespace _440DocumentManagement.Controllers
         {
             try
             {
-                if (request.detail_level != "basic"
-                        && request.detail_level != "all"
-                        && request.detail_level != "admin"
-                        && request.detail_level != "compact")
-                {
-                    return BadRequest(new
-                    {
-                        status = "incorrect detail_level"
-                    });
-                }
-
                 var portalUrl = __getCustomerPortalUrl();
 
                 using (var cmd = _dbHelper.SpawnCommand())
                 {
-                    var where = " WHERE (public=true) OR (";
+                    var where = " WHERE 1=1 AND ";
 
                     where += !string.IsNullOrEmpty(request.shared_project_id) ? $"shared_projects.shared_project_id='{request.shared_project_id}' AND " : "";
                     where += !string.IsNullOrEmpty(request.is_public) ? $"shared_projects.public={request.is_public} AND " : "";
                     where += !string.IsNullOrEmpty(request.status) ? $"shared_projects.status='{request.status}' AND " : "";
                     where += !string.IsNullOrEmpty(request.share_company_id) ? $"shared_projects.share_company_id='{request.share_company_id}' AND " : "";
                     where += !string.IsNullOrEmpty(request.share_office_id) ? $"shared_projects.share_office_id='{request.share_office_id}' AND " : "";
-                    where += !string.IsNullOrEmpty(request.share_user_email) ? $"share_users.user_email=@share_user_email AND " : "";
+                    where += !string.IsNullOrEmpty(request.share_user_email) ? $"(share_users.user_email=@share_user_email OR share_contacts.contact_email=@share_user_email) AND " : "";
                     where += !string.IsNullOrEmpty(request.share_user_id) ? $"shared_projects.share_user_id='{request.share_user_id}' AND " : "";
                     where += !string.IsNullOrEmpty(request.share_source_company_id) ? $"shared_projects.share_source_company_id='{request.share_source_company_id}' AND " : "";
                     where += !string.IsNullOrEmpty(request.share_source_office_id) ? $"shared_projects.share_source_office_id='{request.share_source_office_id}' AND " : "";
-                    //where += !string.IsNullOrEmpty(request.share_source_user_email) ? $"share_source_users.user_email=@share_source_user_email AND " : "";
+                    where += !string.IsNullOrEmpty(request.share_source_user_email) ? $"share_source_users.user_email=@share_source_user_email AND " : "";
                     where += !string.IsNullOrEmpty(request.share_source_user_id) ? $"shared_projects.share_source_user_id='{request.share_source_user_id}' AND " : "";
                     where += !string.IsNullOrEmpty(request.project_id) ? $"shared_projects.project_id='{request.project_id}' AND " : "";
 
                     where = where.Remove(where.Length - 5);
-                    where += ")";
 
-                    if (request.detail_level == "compact")
-                    {
-                        cmd.CommandText = "SELECT shared_projects.create_datetime, " +
-                            "share_users.user_displayname AS source_company_contact_displayname, " +
-                            "customers.customer_name AS source_company_displayname, " +
-                            "customers.customer_phone AS source_company_phone, " +
-                            "projects.project_name, " +
-                            "projects.project_id, " +
-                            "projects.project_displayname, " +
-                            "projects.project_bid_datetime, " +
-                            "projects.project_desc, " +
-                            "projects.project_number,share_users.user_firstname, share_users.user_lastname, shared_projects.share_type " +
-                            "FROM shared_projects " +
-                            "LEFT JOIN projects ON shared_projects.project_id = projects.project_id " +
-                            " LEFT JOIN users share_users ON shared_projects.share_source_user_id = share_users.user_id " +
-                            " LEFT JOIN customers ON shared_projects.share_company_id = customers.customer_id " + where;
-
-                        if (!string.IsNullOrEmpty(request.share_user_email))
-                        {
-                            cmd.Parameters.AddWithValue("@share_user_email", request.share_user_email);
-                        }
-                        //if (!string.IsNullOrEmpty(request.share_source_user_email))
-                        //{
-                        //    cmd.Parameters.AddWithValue("@share_source_user_email", request.share_source_user_email);
-                        //}
-                        using (var reader = cmd.ExecuteReader())
-                        {
-                            var result = new List<Dictionary<string, object>> { };
-
-                            while (reader.Read())
-                            {
-                                var shareUserFirstName = _dbHelper.SafeGetString(reader, 10);
-                                var shareUserLastName = _dbHelper.SafeGetString(reader, 11);
-                                var shareUserDisplayName = (!string.IsNullOrEmpty(shareUserFirstName) && !string.IsNullOrEmpty(shareUserLastName))
-                                                                ? $"{shareUserLastName}, {shareUserFirstName}" : $"{shareUserFirstName}{shareUserLastName}";
-
-                                result.Add(new Dictionary<string, object>
-                                {
-                                    { "create_datetime", _dbHelper.SafeGetDatetimeString(reader, 0) },
-                                    { "project_admin_user_fullname", shareUserDisplayName },
-                                    { "project_bid_datetime", _dbHelper.SafeGetDatetimeString(reader, 7) },
-                                    { "project_displayname", _dbHelper.SafeGetString(reader, 6) },
-                                    { "project_id", _dbHelper.SafeGetString(reader, 5) },
-                                    { "project_name", _dbHelper.SafeGetString(reader, 4) },
-                                    { "project_number", _dbHelper.SafeGetString(reader, 9) },
-                                    { "project_desc", _dbHelper.SafeGetString(reader, 8) },
-                                    { "source_company_displayname", _dbHelper.SafeGetString(reader, 2) },
-                                    { "source_company_phone", _dbHelper.SafeGetString(reader, 3) },
-                                    { "source_company_contact_displayname", _dbHelper.SafeGetString(reader, 1) },
-                                    { "share_type", _dbHelper.SafeGetString(reader, 12) },
-                                });
-                            }
-
-                            return Ok(result);
-                        }
-                    }
-
-                    cmd.CommandText = "SELECT" +
-                        " shared_projects.create_datetime, " +
-                        " share_users.user_displayname AS source_company_contact_displayname, " +
-                        " customers.customer_name AS source_company_displayname, " +
-                        " customers.customer_phone AS source_company_phone, " +
-                        " projects.project_name, " +
-                        " projects.project_id, " +
-                        " projects.project_displayname, " +
-                        " projects.project_bid_datetime, " +
-                        " projects.project_desc, " +
-                        " projects.project_number, " +
-                        " shared_projects.edit_datetime, " +
-                        " projects.project_city, " +
-                        " projects.project_state, " +
-                        " projects.project_zip, " +
-                        " projects.project_address1, " +
-                        " projects.project_address2, " +
-                        //" projects.source_url as share_source_url, " +
-                        " share_users.user_phone AS share_source_user_phone, " +
-                        " share_users.user_email AS share_source_user_email, " +
-                        " projects.project_country, " +
-                        " projects.project_timezone, " +
-                        " shared_projects.public, " +
-                        " shared_projects.share_company_id, " +
-                        " shared_projects.share_source_company_name, " +
-                        " shared_projects.share_source_company_id, " +
-                        " projects.project_service_area,  " +
-                        " projects.project_type, " +
-                        " shared_projects.create_user_id, shared_projects.edit_user_id, projects.project_password,  " +
-                        " shared_projects.share_source_user_displayname, " +
-                        " share_users.user_firstname, share_users.user_lastname,  customers.customer_name as share_company_name,  " +
-                        " share_users.user_email as share_user_email,  " +
-                        " shared_projects.shared_project_id, " +
-                        " shared_projects.share_type " +
-                        " FROM shared_projects " +
-                        " LEFT JOIN projects ON  shared_projects.project_id = projects.project_id " +
-                        " LEFT JOIN  users as share_users ON shared_projects.share_user_id = share_users.user_id " +
-                        " LEFT JOIN customers ON  shared_projects.share_company_id = customers.customer_id" + where;
-
-                    if (!string.IsNullOrEmpty(request.share_user_email))
-                    {
-                        cmd.Parameters.AddWithValue("@share_user_email", request.share_user_email);
-                    }
-                    //if (!string.IsNullOrEmpty(request.share_source_user_email))
-                    //{
-                    //    cmd.Parameters.AddWithValue("@share_source_user_email", request.share_source_user_email);
-                    //}
+                    cmd.CommandText = "SELECT shared_projects.create_datetime, shared_projects.edit_datetime, "
+                        + "projects.project_bid_datetime, shared_projects.public, projects.project_city, projects.project_displayname, "
+                        + "shared_projects.project_id, projects.project_name, projects.project_number, "
+                        + "projects.project_state, projects.project_timezone, "
+                        + "share_companies.company_name, shared_projects.share_company_id, "
+                        + "share_source_companies.customer_name, shared_projects.share_source_company_id, "
+                        + "CONCAT(share_source_users.user_lastname, ', ', share_source_users.user_firstname) AS share_source_user_displayname, "
+                        + "share_source_users.user_email, share_source_users.user_phone, "
+                        + "CONCAT(COALESCE(share_users.user_lastname, share_contacts.contact_lastname), ', ', COALESCE(share_users.user_firstname, share_contacts.contact_firstname)) AS share_user_displayname, "
+                        + "COALESCE(share_users.user_email, share_contacts.contact_email) AS share_user_email, "
+                        + "COALESCE(share_user_offices.company_office_name, share_contacts.company_office_name) AS share_user_office_name, "
+                        + "COALESCE(share_users.user_phone, share_contacts.contact_phone) AS share_user_phone, "
+                        + "shared_projects.status, "
+                        // All level
+                        + "projects.project_address1, projects.project_address2, projects.project_country, "
+                        + "projects.project_desc, projects.project_service_area, projects.project_type, projects.project_zip, "
+                        // Admin level
+                        + "shared_projects.create_user_id, shared_projects.edit_user_id, projects.project_password, "
+                        + "shared_projects.shared_project_id, shared_projects.share_type "
+                        + "FROM shared_projects "
+                        + "LEFT JOIN projects ON projects.project_id=shared_projects.project_id "
+                        + "LEFT JOIN customer_companies share_companies ON share_companies.company_id=shared_projects.share_company_id "
+                        + "LEFT JOIN customers share_source_companies ON share_source_companies.customer_id=shared_projects.share_source_company_id "
+                        + "LEFT JOIN users share_source_users ON share_source_users.user_id=shared_projects.share_source_user_id "
+                        + "LEFT JOIN users share_users ON share_users.user_id=shared_projects.share_user_id "
+                        + "LEFT JOIN customer_contacts share_contacts ON share_contacts.contact_id=shared_projects.share_user_id "
+                        + "LEFT JOIN company_offices share_user_offices ON share_user_offices.company_office_id=shared_projects.share_office_id "
+                        + where;
 
                     using (var reader = cmd.ExecuteReader())
                     {
@@ -383,59 +295,55 @@ namespace _440DocumentManagement.Controllers
 
                         while (reader.Read())
                         {
-                            var projectID = _dbHelper.SafeGetString(reader, 5);
+                            var projectID = _dbHelper.SafeGetString(reader, "project_id");
                             var sourceUrl = $"{portalUrl}/customer-portal/view-project/{projectID}/overview";
-                            var shareUserFirstName = _dbHelper.SafeGetString(reader, 30);
-                            var shareUserLastName = _dbHelper.SafeGetString(reader, 31);
-                            var shareUserDisplayName = (!string.IsNullOrEmpty(shareUserFirstName) && !string.IsNullOrEmpty(shareUserLastName))
-                                                            ? $"{shareUserLastName}, {shareUserFirstName}" : $"{shareUserFirstName}{shareUserLastName}";
 
                             var item = new Dictionary<string, object>
                             {
                                 { "create_datetime", _dbHelper.SafeGetDatetimeString(reader, 0) },
-                                { "edit_datetime", _dbHelper.SafeGetDatetimeString(reader, 10) },
-                                { "project_bid_datetime", _dbHelper.SafeGetDatetimeString(reader, 7) },
-                                { "project_city", _dbHelper.SafeGetString(reader, 11) },
-                                { "project_id", _dbHelper.SafeGetString(reader, 5) },
-                                { "project_name", _dbHelper.SafeGetString(reader, 4) },
-                                { "project_number", _dbHelper.SafeGetString(reader, 9) },
-                                { "project_state", _dbHelper.SafeGetString(reader, 12) },
-                                { "project_timezone", _dbHelper.SafeGetString(reader, 19) },
-                                { "public", _dbHelper.SafeGetBooleanRaw(reader, 20) },
-                                { "share_source_company_name", _dbHelper.SafeGetString(reader, 22) },
-                                { "share_source_company_id", _dbHelper.SafeGetString(reader, 23) },
-                                { "share_source_user_displayname", _dbHelper.SafeGetString(reader, 29) },
-                                { "share_source_user_email", _dbHelper.SafeGetString(reader, 17) },
-                                { "share_source_user_phone", _dbHelper.SafeGetString(reader, 16) },
-                                { "status", _dbHelper.SafeGetString(reader, 15) },
+                                { "edit_datetime", _dbHelper.SafeGetDatetimeString(reader, 1) },
+                                { "project_bid_datetime", _dbHelper.SafeGetDatetimeString(reader, 2) },
+                                { "project_city", _dbHelper.SafeGetString(reader, "project_city") },
+                                { "project_displayname", _dbHelper.SafeGetString(reader, "project_displayname") },
+                                { "project_id", _dbHelper.SafeGetString(reader, "project_id") },
+                                { "project_name", _dbHelper.SafeGetString(reader, "project_name") },
+                                { "project_number", _dbHelper.SafeGetString(reader, "project_number") },
+                                { "project_state", _dbHelper.SafeGetString(reader, "project_state") },
+                                { "project_timezone", _dbHelper.SafeGetString(reader, "project_timezone") },
+                                { "public", _dbHelper.SafeGetBooleanRaw(reader, 3) },
+                                { "share_company_name", _dbHelper.SafeGetString(reader, "company_name") },
+                                { "share_company_id", _dbHelper.SafeGetString(reader, "share_company_id") },
+                                { "share_source_company_name", _dbHelper.SafeGetString(reader, "customer_name") },
+                                { "share_source_company_id", _dbHelper.SafeGetString(reader, "share_source_company_id") },
+                                { "share_source_user_displayname", _dbHelper.SafeGetString(reader, "share_source_user_displayname") },
+                                { "share_source_user_email", _dbHelper.SafeGetString(reader, "user_email") },
+                                { "share_source_user_phone", _dbHelper.SafeGetString(reader, "user_phone") },
+                                { "status", _dbHelper.SafeGetString(reader, "status") },
                                 { "share_source_url", sourceUrl },
-                                { "share_company_id", _dbHelper.SafeGetString(reader, 21) },
-                                { "share_company_name", _dbHelper.SafeGetString(reader, 32) },
-                                { "share_user_email", _dbHelper.SafeGetString(reader, 33) },
-                                { "share_user_phone", _dbHelper.SafeGetString(reader, 29) },
-                                { "share_user_displayname", shareUserDisplayName },
-                                { "shared_project_id", _dbHelper.SafeGetString(reader, 34) },
-                                { "share_type", _dbHelper.SafeGetString(reader, 35) },
-								//{ "share_user_id", _dbHelper.SafeGetString(reader, 33) },
-								//{ "share_user_office_name", _dbHelper.SafeGetString(reader, 34) },
-							};
+                                { "share_user_email", _dbHelper.SafeGetString(reader, "share_user_email") },
+                                { "share_user_phone", _dbHelper.SafeGetString(reader, "share_user_phone") },
+                                { "share_user_displayname", _dbHelper.SafeGetString(reader, "share_user_displayname") },
+                                { "shared_project_id", _dbHelper.SafeGetString(reader, "shared_project_id") },
+                                { "share_type", _dbHelper.SafeGetString(reader, "share_type") },
+								{ "share_user_office_name", _dbHelper.SafeGetString(reader, "share_user_office_name") },
+                            };
 
                             if (request.detail_level == "all" || request.detail_level == "admin")
                             {
-                                item["project_address1"] = _dbHelper.SafeGetString(reader, 14);
-                                item["project_address2"] = _dbHelper.SafeGetString(reader, 15);
-                                item["project_country"] = _dbHelper.SafeGetString(reader, 18);
-                                item["project_desc"] = _dbHelper.SafeGetString(reader, 8);
-                                item["project_service_area"] = _dbHelper.SafeGetString(reader, 24);
-                                item["project_type"] = _dbHelper.SafeGetString(reader, 25);
-                                item["project_zip"] = _dbHelper.SafeGetString(reader, 13);
+                                item["project_address1"] = _dbHelper.SafeGetString(reader, "project_address1");
+                                item["project_address2"] = _dbHelper.SafeGetString(reader, "project_address2");
+                                item["project_country"] = _dbHelper.SafeGetString(reader, "project_country");
+                                item["project_desc"] = _dbHelper.SafeGetString(reader, "project_desc");
+                                item["project_service_area"] = _dbHelper.SafeGetString(reader, "project_service_area");
+                                item["project_type"] = _dbHelper.SafeGetString(reader, "project_type");
+                                item["project_zip"] = _dbHelper.SafeGetString(reader, "project_zip");
                             }
 
                             if (request.detail_level == "admin")
                             {
-                                item["create_user_id"] = _dbHelper.SafeGetString(reader, 26);
-                                item["edit_user_id"] = _dbHelper.SafeGetString(reader, 27);
-                                item["project_password"] = _dbHelper.SafeGetString(reader, 28);
+                                item["create_user_id"] = _dbHelper.SafeGetString(reader, "create_user_id");
+                                item["edit_user_id"] = _dbHelper.SafeGetString(reader, "edit_user_id");
+                                item["project_password"] = _dbHelper.SafeGetString(reader, "project_password");
                             }
 
                             result.Add(item);

@@ -1,5 +1,6 @@
 ﻿using _440DocumentManagement.Helpers;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace _440DocumentManagement.Services.Interface
 {
@@ -25,6 +26,11 @@ namespace _440DocumentManagement.Services.Interface
 		Dictionary<string, string> GetSourceFileInfo(DatabaseHelper dbHelper, string docId);
 		string GetDisciplineFolderName(string docNumber);
 		string GetSystemSetting(DatabaseHelper dbHelper, string settingName);
-		void CreateComparison(DatabaseHelper dbHelper, string docId, string prevDocId, Dictionary<string, string> relatedInfo);
+		Task CreateComparison(DatabaseHelper dbHelper, string docId, string prevDocId, Dictionary<string, string> relatedInfo);
+		void RecreateFolderTransactionLog(DatabaseHelper dbHelper, string docId);
+		Task<bool> RepublishDocuments(DatabaseHelper dbHelper, List<string> docId, Dictionary<string, string> relatedInfo);
+		Task<bool> PublishDocumentToCurrentPlan(DatabaseHelper dbHelper, string docId, Dictionary<string, string> relatedInfo);
+		Task<bool> UnpublishDocumentFromCurrentPlan(DatabaseHelper dbHelper, string docId, Dictionary<string, string> relatedInfo);
+		Dictionary<string, string> GetDocumentInfo(DatabaseHelper dbHelper, string docId);
 	}
 }

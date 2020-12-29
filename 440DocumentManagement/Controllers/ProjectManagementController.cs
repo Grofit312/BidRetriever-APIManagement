@@ -6,10 +6,6 @@ using _440DocumentManagement.Helpers;
 using _440DocumentManagement.Models;
 using _440DocumentManagement.Models.Project;
 using _440DocumentManagement.Services.Interface;
-using Amazon.DynamoDBv2;
-using Amazon.Lambda;
-using Dropbox.Api;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSwag.Annotations;
 
@@ -1952,41 +1948,18 @@ namespace _440DocumentManagement.Controllers
                     }
                 }
 
-                using (var dbx = new DropboxClient(accessToken))
+                var dropboxHelper = new DropboxHelper(accessToken);
+                var url = await dropboxHelper.GetSharedUrl(destinationPath);
+
+                if (string.IsNullOrEmpty(url))
                 {
-                    try
+                    return BadRequest(new
                     {
-                        var link = await dbx.Sharing.ListSharedLinksAsync(destinationPath, null, true);
-                        Dropbox.Api.Sharing.SharedLinkMetadata existingLink = null;
-
-                        for (var index = 0; index < link.Links.Count; index++)
-                        {
-                            if (link.Links[index].PathLower == destinationPath.ToLower())
-                            {
-                                existingLink = link.Links[index];
-                                break;
-                            }
-                        }
-
-                        if (existingLink == null)
-                        {
-                            var result = await dbx.Sharing.CreateSharedLinkWithSettingsAsync(destinationPath);
-                            return Ok(new { url = result.Url });
-                        }
-                        else
-                        {
-                            string url = link.Links[0].Url;
-                            return Ok(new { url });
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        return BadRequest(new
-                        {
-                            status = "This project is no longer available at the published destination"
-                        });
-                    }
+                        status = "This project is no longer available at the published destination"
+                    });
                 }
+
+                return Ok(new { url });
             }
             catch (Exception exception)
             {

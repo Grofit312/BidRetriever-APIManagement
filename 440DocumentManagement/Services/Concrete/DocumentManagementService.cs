@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace _440DocumentManagement.Services.Concrete
 {
@@ -536,7 +537,8 @@ namespace _440DocumentManagement.Services.Concrete
 
             using (var cmd = databaseHelper.SpawnCommand())
             {
-                cmd.CommandText = $"SELECT * FROM folder_transaction_log WHERE doc_id='{doc_id}' ORDER BY folder_transaction_sequence_num ASC";
+                cmd.CommandText = "SELECT * FROM folder_transaction_log LEFT JOIN project_folders ON project_folders.folder_id=folder_transaction_log.folder_id"
+						+ $" WHERE doc_id='{doc_id}' AND folder_type NOT LIKE 'source%' ORDER BY folder_transaction_sequence_num ASC";
 
                 using (var reader = cmd.ExecuteReader())
                 {
@@ -588,7 +590,8 @@ namespace _440DocumentManagement.Services.Concrete
                 cmd.CommandText = "SELECT project_documents.project_id, project_documents.create_datetime,  "
                     + "files.file_original_modified_datetime, files.parent_original_modified_datetime, "
                     + "project_documents.submission_datetime, customers.customer_timezone, projects.project_name, "
-					+ "project_submissions.submitter_email, project_documents.submission_id "
+					+ "project_submissions.submitter_email, project_documents.submission_id, project_submissions.submission_name, "
+					+ "project_submissions.submission_type "
                     + "FROM project_documents "
                     + "LEFT JOIN projects ON projects.project_id=project_documents.project_id "
 					+ "LEFT JOIN project_submissions ON project_submissions.project_submission_id=project_documents.submission_id "
@@ -610,6 +613,8 @@ namespace _440DocumentManagement.Services.Concrete
 						info["project_name"] = dbHelper.SafeGetString(reader, 6);
 						info["submitter_email"] = dbHelper.SafeGetString(reader, 7);
 						info["submission_id"] = dbHelper.SafeGetString(reader, 8);
+						info["submission_name"] = dbHelper.SafeGetString(reader, 9);
+						info["submission_type"] = dbHelper.SafeGetString(reader, 10);
                     }
                     else
                     {
@@ -628,10 +633,10 @@ namespace _440DocumentManagement.Services.Concrete
 			info["plan_file_naming"] = string.IsNullOrEmpty(planFileNaming) ? "<doc_num>__<doc_name>__<doc_revision>" : planFileNaming;
 
 			var currentPlansFolder = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_CURRENT_PLANS_FOLDER");
-			info["current_plans_folder"] = string.IsNullOrEmpty(currentPlansFolder) ? "disabled" : currentPlansFolder;
+			info["current_plans_folder"] = string.IsNullOrEmpty(currentPlansFolder) ? "enabled" : currentPlansFolder;
 
 			var allPlansFolder = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_ALL_PLANS_FOLDER");
-			info["all_plans_folder"] = string.IsNullOrEmpty(allPlansFolder) ? "disabled" : allPlansFolder;
+			info["all_plans_folder"] = string.IsNullOrEmpty(allPlansFolder) ? "enabled" : allPlansFolder;
 
 			var allPlansSubmissionFolder = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_ALL_PLANS_SUBMISSION_FOLDER");
 			info["all_plans_submission_folder"] = string.IsNullOrEmpty(allPlansSubmissionFolder) ? "disabled" : allPlansSubmissionFolder;
@@ -641,6 +646,10 @@ namespace _440DocumentManagement.Services.Concrete
 
 			var rasterPlansFolder = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_RASTER_PLANS_FOLDER");
 			info["raster_plans_folder"] = string.IsNullOrEmpty(rasterPlansFolder) ? "disabled" : rasterPlansFolder;
+
+			info["destination_root_path"] = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_DESTINATION_PATH");
+			info["destination_type"] = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_DESTINATION_TYPE_ID");
+			info["destination_token"] = GetProjectSetting(dbHelper, info["project_id"], "PROJECT_DESTINATION_TOKEN");
 
 			var docFile = GetSourceFileInfo(dbHelper, docId);
 
@@ -702,7 +711,7 @@ namespace _440DocumentManagement.Services.Concrete
 
             if (documents.Count == 0)
             {
-                docRevision = timestampWithoutHM;
+                docRevision = "NULL";
             }
             else
             {
@@ -756,7 +765,7 @@ namespace _440DocumentManagement.Services.Concrete
 
 			using (var cmd = dbHelper.SpawnCommand())
 			{
-				cmd.CommandText = "SELECT files.file_id, files.file_original_filename, files.file_type FROM project_documents "
+				cmd.CommandText = "SELECT files.file_id, files.file_original_filename, files.file_type, files.file_size FROM project_documents "
 					+ "LEFT JOIN document_files ON document_files.doc_id=project_documents.doc_id "
 					+ "LEFT JOIN files ON files.file_id=document_files.file_id "
 					+ $"WHERE project_documents.doc_id='{docId}' ORDER BY files.create_datetime DESC";
@@ -770,6 +779,7 @@ namespace _440DocumentManagement.Services.Concrete
 							{ "file_id", dbHelper.SafeGetString(reader, 0) },
 							{ "file_original_filename", dbHelper.SafeGetString(reader, 1) },
 							{ "file_type", dbHelper.SafeGetString(reader, 2) },
+							{ "file_size", dbHelper.SafeGetString(reader, 3) },
 						};
 
 						result.Add(fileInfo);
@@ -869,7 +879,7 @@ namespace _440DocumentManagement.Services.Concrete
 			}
 		}
 
-		public void CreateComparison(DatabaseHelper dbHelper, string currentDocId, string prevDocId, Dictionary<string, string> relatedInfo)
+		public async Task CreateComparison(DatabaseHelper dbHelper, string currentDocId, string prevDocId, Dictionary<string, string> relatedInfo)
         {
 			var wipApiEndpoint = GetSystemSetting(dbHelper, "BR_WIPAPI_ENDPOINT");
 			var vaultBucket = GetSystemSetting(dbHelper, "BR_PERM_VAULT");
@@ -905,12 +915,298 @@ namespace _440DocumentManagement.Services.Concrete
 						Content = new FormUrlEncodedContent(data)
 					};
 
-					client.SendAsync(request);
+					await client.SendAsync(request);
 				}
 				catch (Exception exception)
 				{
 					// Do nothing
+					var exceptionMessage = exception.Message;
 				}
+			}
+		}
+
+		public void RecreateFolderTransactionLog(DatabaseHelper dbHelper, string docId)
+        {
+			var existingLogs = FindFolderTransactionLogs(dbHelper, docId);
+
+			foreach (var log in existingLogs)
+			{
+				CreateFolderTransactionLog(dbHelper, log, "remove_file");
+			}
+
+			foreach (var log in existingLogs)
+			{
+				CreateFolderTransactionLog(dbHelper, log, "add_file");
+			}
+		}
+
+		private string GetPlanFileName(string docNumber, string docName, string docSubproject, string docPagenumber, string docRevision, string planFileNamingTemplate)
+        {
+			if (!string.IsNullOrEmpty(docSubproject))
+            {
+				docNumber = docSubproject + "_" + docNumber;
+            }
+			if (!string.IsNullOrEmpty(docPagenumber))
+            {
+				docNumber = docNumber + "_" + docPagenumber;
+            }
+
+			var mergedPlanFileName = planFileNamingTemplate;
+
+			if (mergedPlanFileName.Contains("<doc_num>"))
+            {
+				mergedPlanFileName = mergedPlanFileName.Replace("<doc_num>", docNumber ?? "");
+            }
+
+			if (mergedPlanFileName.Contains("<doc_name>"))
+            {
+				mergedPlanFileName = mergedPlanFileName.Replace("__<doc_name>", string.IsNullOrEmpty(docName) ? "" : $"__{docName}");
+            }
+
+			if (mergedPlanFileName.Contains("<doc_revision>"))
+            {
+				mergedPlanFileName = mergedPlanFileName.Replace("__<doc_revision>", string.IsNullOrEmpty(docRevision) ? "" : $"__{docRevision}");
+            }
+
+			mergedPlanFileName = mergedPlanFileName.Replace("__", "_");
+
+			return mergedPlanFileName;
+        }
+
+		public Dictionary<string, string> GetDocumentInfo(DatabaseHelper dbHelper, string docId)
+        {
+			using (var cmd = dbHelper.SpawnCommand())
+			{
+				cmd.CommandText = "SELECT doc_name, doc_number, doc_revision, doc_subproject, doc_pagenumber FROM project_documents "
+					+ $"WHERE doc_id='{docId}'";
+
+				using (var reader = cmd.ExecuteReader())
+				{
+					if (reader.Read())
+					{
+						return new Dictionary<string, string>
+						{
+							{ "doc_name", dbHelper.SafeGetString(reader, "doc_name") },
+							{ "doc_number", dbHelper.SafeGetString(reader, "doc_number") },
+							{ "doc_revision", dbHelper.SafeGetString(reader, "doc_revision") },
+							{ "doc_subproject", dbHelper.SafeGetString(reader, "doc_subproject") },
+							{ "doc_pagenumber", dbHelper.SafeGetString(reader, "doc_pagenumber") },
+						};
+					}
+					else
+					{
+						return null;
+					}
+				}
+			}
+		}
+
+		private List<Dictionary<string, string>> GetPublishedPlanRecords(DatabaseHelper dbHelper, string docId)
+        {
+			using (var cmd = dbHelper.SpawnCommand())
+            {
+				var records = new List<Dictionary<string, string>>();
+
+				cmd.CommandText = "SELECT destination_file_name, destination_folder_path, doc_publish_id "
+					+ "FROM project_documents_published "
+					+ $"WHERE doc_id='{docId}' AND status='active' AND publish_status='completed' AND destination_folder_path LIKE 'Plans%' "
+					+ "ORDER BY publish_datetime DESC";
+
+				using (var reader = cmd.ExecuteReader())
+                {
+					while (reader.Read())
+                    {
+						var destinationFileName = dbHelper.SafeGetString(reader, "destination_file_name");
+						var destinationFolderPath = dbHelper.SafeGetString(reader, "destination_folder_path");
+						var docPublishId = dbHelper.SafeGetString(reader, "doc_publish_id");
+
+						var existing = records.Find(record => record["destination_folder_path"] == destinationFolderPath);
+
+						if (existing == null)
+                        {
+							records.Add(new Dictionary<string, string>
+							{
+								{ "destination_file_name", destinationFileName },
+								{ "destination_folder_path", destinationFolderPath },
+								{ "doc_publish_id", docPublishId },
+							});
+                        }
+					}
+                }
+
+				return records;
+            }
+        }
+
+		private void UpdatePublishedRecord(DatabaseHelper dbHelper, string docPublishId, string destinationFileName = null, string status = null)
+        {
+			using (var cmd = dbHelper.SpawnCommand())
+            {
+				cmd.CommandText = "UPDATE project_documents_published "
+					+ (!string.IsNullOrEmpty(destinationFileName) ? $"SET destination_file_name='{destinationFileName}' " : "")
+					+ (!string.IsNullOrEmpty(status) ? $"SET status='{status}' " : "")
+					+ $"WHERE doc_publish_id='{docPublishId}'";
+
+				cmd.ExecuteNonQuery();
+            }
+        }
+
+		public async Task<bool> RepublishDocuments(DatabaseHelper dbHelper, List<string> docIds, Dictionary<string, string> relatedInfo)
+        {
+			try
+            {
+				var dbx = new DropboxHelper(relatedInfo["destination_token"]);
+				var tempMovedList = new List<Dictionary<string, string>> { };
+
+				foreach (var docId in docIds)
+                {
+					var document = GetDocumentInfo(dbHelper, docId);
+
+					if (document == null)
+					{
+						return false;
+					}
+
+					var newFileName = GetPlanFileName(document["doc_number"], document["doc_name"], document["doc_subproject"], document["doc_pagenumber"], document["doc_revision"], relatedInfo["plan_file_naming"]);
+
+					var publishedRecords = GetPublishedPlanRecords(dbHelper, docId);
+
+					foreach (var publishedRecord in publishedRecords)
+					{
+						var extensionIndex = publishedRecord["destination_file_name"].LastIndexOf(".");
+						var fileNamePart = publishedRecord["destination_file_name"].Substring(0, extensionIndex);
+						var newFullFileName = publishedRecord["destination_file_name"].Replace(fileNamePart, newFileName);
+						var originFullPath = $"{relatedInfo["destination_root_path"]}/{publishedRecord["destination_folder_path"]}/{publishedRecord["destination_file_name"]}";
+						var newFullPath = $"{relatedInfo["destination_root_path"]}/{publishedRecord["destination_folder_path"]}/{newFullFileName}";
+
+						UpdatePublishedRecord(dbHelper, publishedRecord["doc_publish_id"], newFullFileName);
+						var moveResult = await dbx.MoveFile(originFullPath, newFullPath);
+
+						if (!moveResult)
+                        {
+							var tempPath = "temp_" + newFullPath;
+							await dbx.MoveFile(originFullPath, tempPath);
+							tempMovedList.Add(new Dictionary<string, string>
+							{
+								{ "temp_path", tempPath },
+								{ "target_path", newFullPath },
+							});
+                        }
+					}
+				}
+
+				foreach (var temp in tempMovedList)
+                {
+					await dbx.MoveFile(temp["temp_path"], temp["target_path"]);
+                }
+
+				return true;
+			}
+			catch (Exception)
+            {
+				// Something went wrong
+				return false;
+            }
+        }
+
+		public async Task<bool> PublishDocumentToCurrentPlan(DatabaseHelper dbHelper, string docId, Dictionary<string, string> relatedInfo)
+        {
+			try
+            {
+				var wipApiEndpoint = GetSystemSetting(dbHelper, "BR_WIPAPI_ENDPOINT");
+				var vaultBucket = GetSystemSetting(dbHelper, "BR_PERM_VAULT");
+
+				if (string.IsNullOrEmpty(wipApiEndpoint))
+				{
+					// wip api endpoint not available, should terminate
+					return false;
+				}
+
+				var docInfo = GetDocumentInfo(dbHelper, docId);
+
+				if (docId == null)
+                {
+					// Document info not found
+					return false;
+                }
+
+				var sourceFileInfo = GetSourceFileInfo(dbHelper, docId);
+
+				if (sourceFileInfo == null)
+                {
+					// Source File not found
+					return false;
+                }
+
+				// Create 964 record
+				var destinationFileName = GetPlanFileName(docInfo["doc_number"], docInfo["doc_name"], docInfo["doc_subproject"], docInfo["doc_pagenumber"], docInfo["doc_revision"], relatedInfo["plan_file_naming"]) + ".pdf";
+				var destinationPath = relatedInfo["discipline_plans_folder"] != "disabled"
+					? $"Plans-Current/{GetDisciplineFolderName(docInfo["doc_number"])}"
+					: "Plans-Current";
+
+				var data = new Dictionary<string, string>
+				{
+					{ "doc_id", docId },
+					{ "file_original_filename", sourceFileInfo["file_original_filename"] },
+					{ "process_status", "queued" },
+					{ "process_attempts", "0" },
+					{ "project_id", relatedInfo["project_id"] },
+					{ "project_name", relatedInfo["project_name"] },
+					{ "publish_datetime", relatedInfo["submission_datetime"] },
+					{ "submission_id", relatedInfo["submission_id"] },
+					{ "submission_name", relatedInfo["submission_name"] },
+					{ "submission_type", relatedInfo["submission_type"] },
+					{ "submitter_email", relatedInfo["submitter_email"] },
+					{ "user_timezone", relatedInfo["customer_timezone"] },
+					{ "destination_filename", destinationFileName },
+					{ "destination_path", destinationPath },
+					{ "file_id", sourceFileInfo["file_id"] },
+					{ "file_size", sourceFileInfo["file_size"] },
+					{ "vault_bucket", vaultBucket },
+				};
+
+				using (var client = new HttpClient())
+				{
+					client.BaseAddress = new Uri(wipApiEndpoint);
+					client.Timeout = TimeSpan.FromSeconds(60);
+
+					var request = new HttpRequestMessage(HttpMethod.Post, "Create964")
+					{
+						Content = new FormUrlEncodedContent(data)
+					};
+
+					await client.SendAsync(request);
+				}
+
+				return true;
+            }
+			catch (Exception)
+            {
+				return false;
+            }
+        }
+
+		public async Task<bool> UnpublishDocumentFromCurrentPlan(DatabaseHelper dbHelper, string docId, Dictionary<string, string> relatedInfo)
+        {
+			try
+			{
+				var publishedRecords = GetPublishedPlanRecords(dbHelper, docId);
+				var currentPlanRecord = publishedRecords.Find(record => record["destination_folder_path"].Contains("Plans-Current"));
+
+				if (currentPlanRecord != null)
+                {
+					var dbx = new DropboxHelper(relatedInfo["destination_token"]);
+
+					await dbx.DeleteFile($"{relatedInfo["destination_root_path"]}/{currentPlanRecord["destination_folder_path"]}/{currentPlanRecord["destination_file_name"]}");
+
+					UpdatePublishedRecord(dbHelper, currentPlanRecord["doc_publish_id"], null, "inactive");
+				}
+
+				return true;
+			}
+			catch (Exception)
+			{
+				return false;
 			}
 		}
 	}

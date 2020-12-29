@@ -12,8 +12,8 @@
 		public string share_user_id { get; set; }
 		public string share_source_company_id { get; set; }
 		public string share_source_office_id { get; set; }
-		//public string share_source_user_email { get; set; }
-		public string share_source_user_id { get; set; }
+        public string share_source_user_email { get; set; }
+        public string share_source_user_id { get; set; }
 		public string project_id { get; set; }
 	}
 }

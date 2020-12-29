@@ -19,6 +19,7 @@ namespace _440DocumentManagement.Controllers
         }
 
         [HttpPost]
+        [RequestSizeLimit(100_000_000)]
         [Route("CreateNote")]
         public IActionResult CreateNote(NoteFilter request)
         {
@@ -176,6 +177,7 @@ namespace _440DocumentManagement.Controllers
 
         //------------------------------------------------------------------------------------------------
         [HttpPost]
+        [RequestSizeLimit(100_000_000)]
         [Route("UpdateNote")]
         public IActionResult UpdateNote(NoteFilter request)
         {

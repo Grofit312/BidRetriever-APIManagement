@@ -70,7 +70,11 @@ namespace _440DocumentManagement.Controllers
 							contact_crm_id = request.contact_crm_id,
 							contact_photo_id = request.contact_photo_id,
 							customer_id = request.customer_id,
-							contact_status = request.contact_state
+							contact_status = request.contact_state,
+							company_id = request.company_id,
+							company_name = request.company_name,
+							company_office_id = request.company_office_id,
+							company_office_name = request.company_office_name,
 						}, true);
 
 						return Ok(new
@@ -194,12 +198,12 @@ namespace _440DocumentManagement.Controllers
 		{
 			using (var cmd = _dbHelper.SpawnCommand())
 			{
-				cmd.CommandText = $"SELECT contact_id FROM customer_contacts WHERE contact_email='{contactEmail}'";
+				cmd.CommandText = $"SELECT contact_id FROM customer_contacts WHERE LOWER(contact_email)='{contactEmail.ToLower()}'";
 				using (var reader = cmd.ExecuteReader())
 				{
-					if (reader.HasRows && reader.Read())
+					if (reader.Read())
 					{
-						return Convert.ToString(reader["contact_id"]);
+						return _dbHelper.SafeGetString(reader, 0);
 					}
 					else
 					{
@@ -543,8 +547,6 @@ customer_contacts.contact_id = user_contacts.customer_contact_id where customer_
 							command += " ,contact_state= @contact_state";
 							cmd.Parameters.AddWithValue("@contact_state", request.contact_state);
 						}
-
-
 						if (!string.IsNullOrEmpty(request.contact_zip))
 						{
 							command += " ,contact_zip = @contact_zip";
@@ -575,6 +577,27 @@ customer_contacts.contact_id = user_contacts.customer_contact_id where customer_
 							command += " ,contact_status= @contact_status";
 							cmd.Parameters.AddWithValue("@contact_status", request.contact_status);
 						}
+						if (!string.IsNullOrEmpty(request.company_id))
+						{
+							command += " ,company_id=@company_id";
+							cmd.Parameters.AddWithValue("@company_id", request.company_id);
+						}
+						if (!string.IsNullOrEmpty(request.company_name))
+						{
+							command += " ,company_name=@company_name";
+							cmd.Parameters.AddWithValue("@company_name", request.company_name);
+						}
+						if (!string.IsNullOrEmpty(request.company_office_id))
+						{
+							command += " ,company_office_id=@company_office_id";
+							cmd.Parameters.AddWithValue("@company_office_id", request.company_office_id);
+						}
+						if (!string.IsNullOrEmpty(request.company_office_name))
+						{
+							command += " ,company_office_name=@company_office_name";
+							cmd.Parameters.AddWithValue("@company_office_name", request.company_office_name);
+						}
+
 						command += " WHERE contact_id= @search_contact_id ";
 						cmd.Parameters.AddWithValue("@search_contact_id", request.search_contact_id);
 						cmd.CommandText = command;

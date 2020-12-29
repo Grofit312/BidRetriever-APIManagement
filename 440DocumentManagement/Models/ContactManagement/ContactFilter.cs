@@ -22,5 +22,10 @@ namespace _440DocumentManagement.Models.ContactManagement
         public string contact_photo_id { get; set; }
         public string customer_id { get; set; }
         public string contact_status { get; set; }
+
+        public string company_id { get; set; }
+        public string company_name { get; set; }
+        public string company_office_id { get; set; }
+        public string company_office_name { get; set; }
     }
 }

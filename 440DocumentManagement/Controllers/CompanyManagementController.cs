@@ -597,7 +597,7 @@ namespace _440DocumentManagement.Controllers
             using (var cmd = _dbHelper.SpawnCommand())
             {
                 //cmd.CommandText = $"SELECT EXISTS (SELECT true FROM public.customer_companies WHERE company_id=@company_id or company_domain= @company_domain)";
-                cmd.CommandText = "SELECT company_id FROM public.customer_companies WHERE company_id = @company_id OR company_domain = @company_domain";
+                cmd.CommandText = "SELECT company_id FROM public.customer_companies WHERE company_id = @company_id OR LOWER(company_domain) = LOWER(@company_domain)";
                 cmd.Parameters.AddWithValue("@company_id", company_id);
                 cmd.Parameters.AddWithValue("@company_domain", (object)company_domain ?? DBNull.Value);
 

@@ -88,6 +88,17 @@ namespace _440DocumentManagement.Helpers
                 return reader.GetString(colIndex);
             return string.Empty;
         }
+        public string SafeGetString(NpgsqlDataReader reader, string colName)
+        {
+            var data = reader[colName];
+
+            if (data == null)
+            {
+                return string.Empty;
+            }
+
+            return data as string;
+        }
         public string SafeGetString(IDataReader reader, int colIndex)
         {
             if (!reader.IsDBNull(colIndex))
